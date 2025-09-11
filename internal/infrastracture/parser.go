@@ -8,9 +8,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-func Parse(url string) []lesson.Lesson {
+func ParseLessons(url string) []lesson.Lesson {
 	lessons := make([]lesson.Lesson, 0)
-
 	resp, err := http.Get(url)
 	if err != nil {
 		panic(err)
@@ -22,7 +21,6 @@ func Parse(url string) []lesson.Lesson {
 	}
 	doc.Find("tr").Each(func(i int, tr *goquery.Selection) {
 		startTime := strings.TrimSpace(tr.Find("td").First().Text())
-
 		tr.Find("div.cell").Each(func(i int, cell *goquery.Selection) {
 			lessonType := strings.TrimSpace(cell.Find("span.type").First().Text())
 			subject := strings.TrimSpace(cell.Find("div.subject").First().Text())
@@ -30,7 +28,6 @@ func Parse(url string) []lesson.Lesson {
 			tutor := strings.TrimSpace(cell.Find("a.tutor").First().Text())
 			lessons = append(lessons, lesson.NewLesson(subject, lessonType, tutor, startTime, room))
 		})
-
 	})
 	return lessons
 }

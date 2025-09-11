@@ -13,7 +13,7 @@ func NewLesson(subject string, lessonType string, tutor string, startTime string
 	return Lesson{subject: subject, lessonType: lessonType, tutor: tutor, startTime: startTime, room: room}
 }
 
-func (l Lesson) Getsubject() string {
+func (l Lesson) GetSubject() string {
 	return l.subject
 }
 
