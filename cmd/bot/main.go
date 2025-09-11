@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	lessons := infrastracture.ParseLessons("https://table.nsu.ru/group/25204")
+	lessons := infrastracture.ParseLessonsStudent("https://table.nsu.ru/group/25204")
 	fmt.Println(lessons)
 	return
 }
