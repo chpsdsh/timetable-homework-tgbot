@@ -1,6 +1,7 @@
 package infrastracture
 
 import (
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,7 +11,6 @@ import (
 )
 
 func ParseLessonsStudent(url string) []lesson.LessonStudent {
-	lessons := make([]lesson.LessonStudent, 0)
 	resp, err := http.Get(url)
 	if err != nil {
 		panic(err)
@@ -20,17 +20,46 @@ func ParseLessonsStudent(url string) []lesson.LessonStudent {
 	if err != nil {
 		panic(err)
 	}
-	doc.Find("tr").Each(func(_ int, tr *goquery.Selection) {
-		startTime := strings.TrimSpace(tr.Find("td").First().Text())
-		tr.Find("div.cell").Each(func(i int, cell *goquery.Selection) {
-			lessonType := strings.TrimSpace(cell.Find("span.type").First().Text())
-			subject := strings.TrimSpace(cell.Find("div.subject").First().Text())
-			room := strings.TrimSpace(cell.Find("div.room a").First().Text())
-			tutor := strings.TrimSpace(cell.Find("a.tutor").First().Text())
-			lessons = append(lessons, lesson.NewLessonStudent(subject, lessonType, tutor, startTime, "ТУТ ДОЛЖЕН БЫТЬ ДЕНЬ НЕДЕЛИ", room))
-			//а зачем нам тут день недели, расписание на неделе
-			//практически всегда одинаковое у студентов,
-		}) //на сайте даже нет инфы по неделям
+	table := doc.Find("table.time-table").First()
+	if table == nil {
+		log.Fatal("table not found")
+	}
+	days := make([]string, 0)
+	table.Find("tr").First().Find("th").Each(func(i int, s *goquery.Selection) {
+		if i == 0 {
+			return
+		}
+		days = append(days, s.Text())
+	})
+
+	lessons := make([]lesson.LessonStudent, 0)
+
+	table.Find("tr").Each(func(i int, tr *goquery.Selection) {
+		if i == 0 {
+			return
+		}
+		tds := tr.Find("td")
+		startTime := strings.TrimSpace(tds.Eq(0).Text())
+
+		for col := 1; col < tds.Length(); col++ {
+			weekdayIdx := col - 1
+			if weekdayIdx < 0 || weekdayIdx >= len(days) {
+				continue
+			}
+			weekday := days[weekdayIdx]
+			td := tds.Eq(col)
+
+			cells := td.Find("div.cell")
+			
+			cells.Each(func(i int, cell *goquery.Selection) {
+				lessonType := strings.TrimSpace(cell.Find("span.type").First().Text())
+				subject := strings.TrimSpace(cell.Find("div.subject").First().Text())
+				room := strings.TrimSpace(cell.Find("div.room a").First().Text())
+				tutor := strings.TrimSpace(cell.Find("a.tutor").First().Text())
+				week := strings.TrimSpace(cell.Find("div.week").First().Text())
+				lessons = append(lessons, lesson.NewLessonStudent(subject, lessonType, tutor, startTime, weekday, room, week))
+			})
+		}
 	})
 	return lessons
 }

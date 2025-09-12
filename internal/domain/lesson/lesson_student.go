@@ -7,10 +7,11 @@ type LessonStudent struct {
 	startTime  string
 	weekday    string
 	room       string
+	week       string
 }
 
-func NewLessonStudent(subject string, lessonType string, tutor string, startTime string, weekday string, room string) LessonStudent {
-	return LessonStudent{subject: subject, lessonType: lessonType, tutor: tutor, startTime: startTime, weekday: weekday, room: room}
+func NewLessonStudent(subject string, lessonType string, tutor string, startTime string, weekday string, room string, week string) LessonStudent {
+	return LessonStudent{subject: subject, lessonType: lessonType, tutor: tutor, startTime: startTime, weekday: weekday, room: room, week: week}
 }
 
 func (l LessonStudent) GetSubject() string {
@@ -35,4 +36,8 @@ func (l LessonStudent) GetWeekday() string {
 
 func (l LessonStudent) GetRoom() string {
 	return l.room
+}
+
+func (l LessonStudent) GetWeek() string {
+	return l.week
 }
