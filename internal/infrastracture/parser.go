@@ -15,16 +15,21 @@ func ParseLessonsStudent(url string) []lesson.LessonStudent {
 	if err != nil {
 		panic(err)
 	}
+
 	defer resp.Body.Close()
+
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		panic(err)
 	}
+
 	table := doc.Find("table.time-table").First()
 	if table == nil {
 		log.Fatal("table not found")
 	}
+
 	days := make([]string, 0)
+
 	table.Find("tr").First().Find("th").Each(func(i int, s *goquery.Selection) {
 		if i == 0 {
 			return
@@ -38,6 +43,7 @@ func ParseLessonsStudent(url string) []lesson.LessonStudent {
 		if i == 0 {
 			return
 		}
+
 		tds := tr.Find("td")
 		startTime := strings.TrimSpace(tds.Eq(0).Text())
 
@@ -48,9 +54,7 @@ func ParseLessonsStudent(url string) []lesson.LessonStudent {
 			}
 			weekday := days[weekdayIdx]
 			td := tds.Eq(col)
-
 			cells := td.Find("div.cell")
-			
 			cells.Each(func(i int, cell *goquery.Selection) {
 				lessonType := strings.TrimSpace(cell.Find("span.type").First().Text())
 				subject := strings.TrimSpace(cell.Find("div.subject").First().Text())
