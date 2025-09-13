@@ -1,4 +1,4 @@
-package lesson
+package urlselector
 
 type Teacher struct {
 	shortName string
@@ -6,8 +6,8 @@ type Teacher struct {
 	fullURL   string
 }
 
-func NewTeacher(shortName string, fullName string, fullURL string) Teacher {
-	return Teacher{shortName: shortName, fullName: fullName, fullURL: fullURL}
+func NewTeacher(shortName string, fullName string, fullURL string) *Teacher {
+	return &Teacher{shortName: shortName, fullName: fullName, fullURL: fullURL}
 }
 
 func (t Teacher) GetShortName() string {

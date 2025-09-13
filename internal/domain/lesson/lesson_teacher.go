@@ -10,8 +10,8 @@ type LessonTeacher struct {
 	week       string
 }
 
-func NewLessonTeacher(subject string, lessonType string, groups []string, startTime string, weekday string, room string, week string) LessonTeacher {
-	return LessonTeacher{subject: subject, lessonType: lessonType, groups: groups, startTime: startTime, weekday: weekday, room: room, week: week}
+func NewLessonTeacher(subject string, lessonType string, groups []string, startTime string, weekday string, room string, week string) *LessonTeacher {
+	return &LessonTeacher{subject: subject, lessonType: lessonType, groups: groups, startTime: startTime, weekday: weekday, room: room, week: week}
 }
 
 func (l LessonTeacher) GetSubject() string {
