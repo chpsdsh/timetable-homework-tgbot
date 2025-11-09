@@ -8,7 +8,8 @@ import (
 )
 
 func Run() error {
-	bot, err := telegram.NewBot()
+	state := telegram.NewMemoryState()
+	bot, err := telegram.NewBot(state)
 	if err != nil {
 		return err
 	}

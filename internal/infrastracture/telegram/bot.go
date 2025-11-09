@@ -12,17 +12,29 @@ import (
 )
 
 type Bot struct {
-	api *tgbotapi.BotAPI
+	api    *tgbotapi.BotAPI
+	state  StateStore
+	router *Router
 }
 
-func NewBot() (*Bot, error) {
+func NewBot(state StateStore) (*Bot, error) {
 	token := os.Getenv("TELEGRAM_BOT_TOKEN")
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, err
 	}
+	b := &Bot{api: api, state: state, router: NewRouter()}
+	b.registerRoutes()
 
-	return &Bot{api: api}, nil
+	return b, nil
+}
+
+func (b *Bot) registerRoutes() {
+	b.router.OnCommand("start", b.hStart)
+	b.router.OnText(btnJoin, b.hJoin)
+	b.router.OnText(btnSkip, b.hSkip)
+	b.router.OnState(stateWait, b.hWaitGroup)
+	b.router.Default(b.hDefault)
 }
 
 func (b *Bot) Run(ctx context.Context) error {
@@ -46,30 +58,43 @@ func (b *Bot) Run(ctx context.Context) error {
 }
 
 const (
-	btnJoin = "Присоединиться к группе"
-	btnSkip = "Не присоединяться к группе"
+	btnJoin   = "Присоединиться к группе"
+	btnSkip   = "Не присоединяться к группе"
+	stateWait = "wait_group"
 )
 
-func (b *Bot) handleMessage(ctx context.Context, upd tgbotapi.Update) {
+func (b *Bot) handleMessage(parent context.Context, upd tgbotapi.Update) {
 	m := upd.Message
+	if m == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	defer cancel()
+
 	chatID := m.Chat.ID
-	if m.IsCommand() {
-		switch m.Command() {
-		case "start":
-			if err := b.handleStart(chatID); err != nil {
-				log.Printf("handlestart failed chat=%d: %v", chatID, err)
-			}
+	text := strings.TrimSpace(m.Text)
+
+	if st := b.state.Get(chatID); st != "" && !m.IsCommand() {
+		if h, ok := b.router.state[st]; ok {
+			h(ctx, upd)
 			return
 		}
 	}
 
-	switch strings.TrimSpace(m.Text) {
-	case btnJoin:
-		msg := tgbotapi.NewMessage(chatID, "Введи номер своей группы (например, 23204).")
-		msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-		_, _ = b.api.Send(msg)
+	if m.IsCommand() {
+		if h, ok := b.router.cmd[m.Command()]; ok {
+			h(ctx, upd)
+			return
+		}
 	}
 
+	if h, ok := b.router.text[text]; ok {
+		h(ctx, upd)
+		return
+	}
+
+	b.router.def(ctx, upd)
 }
 
 var ErrTooManyRequests = fmt.Errorf("too many requests")
