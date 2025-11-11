@@ -9,7 +9,7 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println(".env not found")
+		log.Println("key.env not found")
 	}
 
 	if err := app.Run(); err != nil {
