@@ -82,13 +82,13 @@ CREATE INDEX IF NOT EXISTS idx_notif_status ON notifications(status);
 
 -- Расписание групп
 CREATE TABLE IF NOT EXISTS group_schedule (
-  id          BIGSERIAL PRIMARY KEY,
   group_name  TEXT NOT NULL,
   subject     TEXT NOT NULL,
   lesson_type TEXT,
   tutor       TEXT,
   start_time  TIME NOT NULL,
-  weekday     SMALLINT NOT NULL,
+  weekday     TEXT NOT NULL CHECK (weekday IN
+               ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
   room        TEXT,
   week        TEXT
 );
@@ -98,13 +98,13 @@ CREATE INDEX IF NOT EXISTS idx_group_sched_lookup
 
 -- Расписание преподавателей
 CREATE TABLE IF NOT EXISTS teacher_schedule (
-  id          BIGSERIAL PRIMARY KEY,
   teacher_fio TEXT NOT NULL,
   subject     TEXT NOT NULL,
   lesson_type TEXT,
   "groups"    TEXT[] NOT NULL,
   start_time  TIME NOT NULL,
-  weekday     SMALLINT NOT NULL,
+  weekday     TEXT NOT NULL CHECK (weekday IN
+               ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
   room        TEXT,
   week        TEXT
 );
@@ -114,19 +114,20 @@ CREATE INDEX IF NOT EXISTS idx_teacher_sched_lookup
 
 -- Расписание аудиторий
 CREATE TABLE IF NOT EXISTS room_schedule (
-  id          BIGSERIAL PRIMARY KEY,
   room_name   TEXT NOT NULL,
   subject     TEXT NOT NULL,
   lesson_type TEXT,
   tutor       TEXT,
   start_time  TIME NOT NULL,
-  weekday     SMALLINT NOT NULL,
+  weekday     TEXT NOT NULL CHECK (weekday IN
+               ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
   "groups"    TEXT[],
   week        TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_room_sched_lookup
-  ON room_schedule(room_name, weekday, start_time);`
+  ON room_schedule(room_name, weekday, start_time);
+`
 
 	_, err := d.SQL.ExecContext(ctx, schema)
 	return err
