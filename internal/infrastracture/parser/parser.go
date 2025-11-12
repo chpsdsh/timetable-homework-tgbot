@@ -94,7 +94,7 @@ func ParseTeachers() []urlselector.Teacher {
 		fullName, _ := s.Attr("title")
 		href, _ := s.Attr("href")
 		fullURL := abs(page, href)
-		teachers = append(teachers, *urlselector.NewTeacher(shortName, fullName, fullURL))
+		teachers = append(teachers, urlselector.Teacher{ShortName: shortName, FullName: fullName, FullURL: fullURL})
 	})
 	return teachers
 }
@@ -115,9 +115,49 @@ func ParseRooms() []urlselector.Room {
 		name := strings.TrimSpace(s.Text())
 		href, _ := s.Attr("href")
 		fullURL := abs(page, href)
-		rooms = append(rooms, urlselector.NewRoom(name, fullURL))
+		rooms = append(rooms, urlselector.Room{Room: name, FllURL: fullURL})
 	})
 	return rooms
+}
+
+func ParseFaculties() []urlselector.Faculty {
+	const page = "https://table.nsu.ru/faculties"
+	faculties := make([]urlselector.Faculty, 0)
+	resp, err := http.Get(page)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	doc.Find("a.faculty").Each(func(i int, s *goquery.Selection) {
+		name := strings.TrimSpace(s.Text())
+		href, _ := s.Attr("href")
+		fullURL := abs(page, href)
+		faculties = append(faculties, urlselector.Faculty{FacultyName: name, FullUrl: fullURL})
+	})
+	return faculties
+}
+
+func ParseGroups(facultyUrl string) []urlselector.Group {
+	groups := make([]urlselector.Group, 0)
+	resp, err := http.Get(facultyUrl)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	doc.Find("a.group").Each(func(i int, s *goquery.Selection) {
+		name := strings.TrimSpace(s.Text())
+		href, _ := s.Attr("href")
+		groups = append(groups, urlselector.Group{GroupName: name, GroupUrl: href})
+	})
+	return groups
 }
 
 func ParseLessonsTeacher(url string) []lesson.LessonTeacher {

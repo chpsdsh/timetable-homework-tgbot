@@ -13,6 +13,6 @@ func main() {
 	//if err := app.Run(); err != nil {
 	//	log.Fatal(err)
 	//}
-	lessons := infrastracture.ParseLessonsStudent("https://table.nsu.ru/group/23204")
-	fmt.Println(lessons)
+	groups := infrastracture.ParseGroups("https://table.nsu.ru/faculty/ggf")
+	fmt.Println(groups)
 }
