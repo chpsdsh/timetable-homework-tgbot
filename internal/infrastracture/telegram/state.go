@@ -30,3 +30,5 @@ func (s *memoryState) Del(id int64) {
 	defer s.mu.Unlock()
 	delete(s.m, id)
 }
+
+func NewMemState() StateStore { return &memoryState{m: map[int64]string{}} }
