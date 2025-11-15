@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   id_hw         BIGINT NOT NULL REFERENCES homeworks(id_hw) ON DELETE CASCADE,
   user_id       BIGINT NOT NULL REFERENCES users(id_user) ON DELETE CASCADE,
   ts            TIMESTAMPTZ NOT NULL,
+  weekday       TEXT NOT NULL CHECK (weekday IN
+                 ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
   status        TEXT NOT NULL DEFAULT 'pending'
 );
 

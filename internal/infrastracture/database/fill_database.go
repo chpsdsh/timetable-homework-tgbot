@@ -7,6 +7,7 @@ import (
 	"sync"
 	"timetable-homework-tgbot/internal/domain/lesson"
 	"timetable-homework-tgbot/internal/domain/urlselector"
+
 	httpparser "timetable-homework-tgbot/internal/infrastracture/parser"
 )
 
