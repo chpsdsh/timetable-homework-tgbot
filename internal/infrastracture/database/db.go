@@ -14,7 +14,7 @@ type DB struct {
 	SQL *sql.DB
 }
 
-func New(ctx context.Context) (*DB, error) {
+func NewDB(ctx context.Context) (*DB, error) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		return nil, fmt.Errorf("DATABASE_URL is empty")
@@ -25,8 +25,8 @@ func New(ctx context.Context) (*DB, error) {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(20)
 	db.SetConnMaxLifetime(30 * time.Minute)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -45,6 +45,7 @@ func (d *DB) Close() error {
 	}
 	return d.SQL.Close()
 }
+
 func (d *DB) InitSchema(ctx context.Context) error {
 	const schema = `
 -- Пользователи

@@ -1,4 +1,4 @@
-package infrastracture
+package httpparser
 
 import (
 	"log"
@@ -11,8 +11,16 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-func ParseLessonsStudent(url string) []lesson.LessonStudent {
-	resp, err := http.Get(url)
+const (
+	teachersPage  = "https://table.nsu.ru/teacher"
+	roomPage      = "https://table.nsu.ru/room"
+	facultiesPage = "https://table.nsu.ru/faculties"
+	nsuPage       = "https://table.nsu.ru"
+)
+
+func ParseLessonsStudent(groupUrl string) []lesson.LessonStudent {
+	page := nsuPage + groupUrl
+	resp, err := http.Get(page)
 	if err != nil {
 		panic(err)
 	}
@@ -76,9 +84,8 @@ func abs(base, href string) string {
 }
 
 func ParseTeachers() []urlselector.Teacher {
-	const page = "https://table.nsu.ru/teacher"
 	teachers := make([]urlselector.Teacher, 0)
-	resp, err := http.Get(page)
+	resp, err := http.Get(teachersPage)
 	if err != nil {
 		panic(err)
 	}
@@ -93,16 +100,15 @@ func ParseTeachers() []urlselector.Teacher {
 		shortName := strings.TrimSpace(s.Text())
 		fullName, _ := s.Attr("title")
 		href, _ := s.Attr("href")
-		fullURL := abs(page, href)
+		fullURL := abs(teachersPage, href)
 		teachers = append(teachers, urlselector.Teacher{ShortName: shortName, FullName: fullName, FullURL: fullURL})
 	})
 	return teachers
 }
 
 func ParseRooms() []urlselector.Room {
-	const page = "https://table.nsu.ru/room"
 	rooms := make([]urlselector.Room, 0)
-	resp, err := http.Get(page)
+	resp, err := http.Get(roomPage)
 	if err != nil {
 		panic(err)
 	}
@@ -114,16 +120,15 @@ func ParseRooms() []urlselector.Room {
 	doc.Find("a.tutors_item").Each(func(i int, s *goquery.Selection) {
 		name := strings.TrimSpace(s.Text())
 		href, _ := s.Attr("href")
-		fullURL := abs(page, href)
+		fullURL := abs(roomPage, href)
 		rooms = append(rooms, urlselector.Room{Room: name, FllURL: fullURL})
 	})
 	return rooms
 }
 
 func ParseFaculties() []urlselector.Faculty {
-	const page = "https://table.nsu.ru/faculties"
 	faculties := make([]urlselector.Faculty, 0)
-	resp, err := http.Get(page)
+	resp, err := http.Get(facultiesPage)
 	if err != nil {
 		panic(err)
 	}
@@ -135,7 +140,7 @@ func ParseFaculties() []urlselector.Faculty {
 	doc.Find("a.faculty").Each(func(i int, s *goquery.Selection) {
 		name := strings.TrimSpace(s.Text())
 		href, _ := s.Attr("href")
-		fullURL := abs(page, href)
+		fullURL := abs(facultiesPage, href)
 		faculties = append(faculties, urlselector.Faculty{FacultyName: name, FullUrl: fullURL})
 	})
 	return faculties
