@@ -3,13 +3,15 @@ package handlers
 import (
 	"context"
 	"strings"
+	"timetable-homework-tgbot/internal/infrastracture/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TimetableHandler struct {
-	bot *telegram.Bot
+	bot               *telegram.Bot
+	lessonsController controllers.LessonsController
 }
 
 func NewTimetableHandler(bot *telegram.Bot) *TimetableHandler { return &TimetableHandler{bot: bot} }
@@ -30,8 +32,10 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 	chatID := m.Chat.ID
 	group := strings.TrimSpace(m.Text)
 	// TODO(DB): найти расписание группы и красиво отдать
+	timetable := h.lessonsController.GetTimetableGroup(ctx, group)
+
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание группы: "+group, telegram.KBMember())
+	_ = h.bot.Send(chatID, "Расписание группы: "+timetable, telegram.KBMember())
 }
 
 func (h *TimetableHandler) AskTeacher(ctx context.Context, u tgbotapi.Update) {

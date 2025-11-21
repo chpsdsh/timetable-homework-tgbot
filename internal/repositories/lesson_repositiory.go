@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 	"timetable-homework-tgbot/internal/domain"
+	"timetable-homework-tgbot/internal/domain/lesson"
 	"timetable-homework-tgbot/internal/infrastracture/database"
 )
 
@@ -22,30 +23,67 @@ type LessonsRepo struct {
 	DB *database.DB
 }
 
-func (r *LessonsRepo) GetLessonsGroup(ctx context.Context, group string) ([]string, error) {
+func (r *LessonsRepo) GetLessonsGroup(ctx context.Context, group string) ([]lesson.LessonStudent, error) {
 	const q = `
-SELECT  subject
+SELECT
+    subject,
+    lesson_type,
+    tutor,
+    start_time,
+    weekday,
+    room,
+    week
 FROM group_schedule
 WHERE group_name = $1
-ORDER BY subject;
+ORDER BY start_time;
 `
+
 	rows, err := r.DB.SQL.QueryContext(ctx, q, group)
 	if err != nil {
 		return nil, fmt.Errorf("GetLessonsGroup query: %w", err)
 	}
 	defer rows.Close()
 
-	var res []string
+	var res []lesson.LessonStudent
+
 	for rows.Next() {
-		var subj string
-		if err := rows.Scan(&subj); err != nil {
+		var (
+			subject    string
+			lessonType sql.NullString
+			tutor      sql.NullString
+			startTime  time.Time
+			weekday    string
+			room       sql.NullString
+			week       sql.NullString
+		)
+
+		if err := rows.Scan(
+			&subject,
+			&lessonType,
+			&tutor,
+			&startTime,
+			&weekday,
+			&room,
+			&week,
+		); err != nil {
 			return nil, fmt.Errorf("GetLessonsGroup scan: %w", err)
 		}
-		res = append(res, subj)
+
+		res = append(res, lesson.LessonStudent{
+			Subject:    subject,
+			LessonType: nullToString(lessonType),
+			Tutor:      nullToString(tutor),
+			StartTime:  startTime.Format("15:04"), // TIME → "HH:MM"
+			Weekday:    weekday,
+			Room:       nullToString(room),
+			Week:       nullToString(week),
+		})
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("GetLessonsGroup rows: %w", err)
 	}
+
 	return res, nil
 }
 

@@ -3,7 +3,6 @@ package domain
 import "time"
 
 type LessonBrief struct {
-	ID         string
 	Title      string
 	LessonType string
 	Tutor      string

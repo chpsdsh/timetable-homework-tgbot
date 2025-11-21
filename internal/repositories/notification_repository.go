@@ -14,7 +14,7 @@ type NotificationRepo struct {
 
 type NotificationRepository interface {
 	AddNotification(ctx context.Context, hwID, userID int64, ts time.Time, weekday string) error
-	GetNotifications(ctx context.Context) ([]domain.Notification, error)
+	GetPendingNotifications(ctx context.Context) ([]domain.Notification, error)
 }
 
 func (r *NotificationRepo) AddNotification(
@@ -34,7 +34,7 @@ VALUES ($1, $2, $3, $4, 'pending')
 	return nil
 }
 
-func (r *NotificationRepo) GetNotifications(
+func (r *NotificationRepo) GetPendingNotifications(
 	ctx context.Context,
 ) ([]domain.Notification, error) {
 	const q = `

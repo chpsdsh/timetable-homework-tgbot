@@ -8,25 +8,27 @@ import (
 	"timetable-homework-tgbot/internal/infrastracture/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/handlers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
-	"timetable-homework-tgbot/internal/repositories" // оставляем импорт для сигнатуры
+	"timetable-homework-tgbot/internal/repositories"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type App struct{ bot *telegram.Bot }
+type App struct {
+	bot *telegram.Bot
+}
 
 // NewWithDeps — сигнатуру не меняем, но deps сейчас игнорим (всё фейково).
 func NewWithDeps(
 	api *tgbotapi.BotAPI,
-	_ repositories.UsersRepository,
-	_ repositories.LessonsRepository,
-	_ repositories.HomeworkRepository,
-	_ repositories.NotificationRepository,
+	userRepo repositories.UsersRepository,
+	lessonRepo repositories.LessonsRepository,
+	homeworkRepo repositories.HomeworkRepository,
+	notificationRepo repositories.NotificationRepository,
 ) (*App, error) {
 
 	// Контроллеры — ФЕЙКИ с TODO(DB)
 	authCtl := controllers.NewAuthFake("Europe/Bucharest")
-	hwCtl := controllers.NewHomeworkFake()
+	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
 	notifCtl := controllers.NewNotificationFake(authCtl)
 
 	// Telegram

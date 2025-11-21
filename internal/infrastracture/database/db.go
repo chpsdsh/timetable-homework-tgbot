@@ -50,9 +50,8 @@ func (d *DB) InitSchema(ctx context.Context) error {
 	const schema = `
 -- Пользователи
 CREATE TABLE IF NOT EXISTS users (
-  id_user     BIGSERIAL PRIMARY KEY,
-  tg_id       BIGINT UNIQUE NOT NULL,
-  "group"     TEXT
+  tg_id   BIGINT PRIMARY KEY,     -- основной и единственный ключ пользователя
+  "group" TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_group ON users("group");
@@ -60,7 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_users_group ON users("group");
 -- Домашки
 CREATE TABLE IF NOT EXISTS homeworks (
   id_hw         BIGSERIAL PRIMARY KEY,
-  id_user       BIGINT NOT NULL REFERENCES users(id_user) ON DELETE CASCADE,
+  id_user       BIGINT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
   subject       TEXT NOT NULL,
   homework_text TEXT NOT NULL,
   status        TEXT NOT NULL DEFAULT 'new'
@@ -71,13 +70,13 @@ CREATE INDEX IF NOT EXISTS idx_hw_status ON homeworks(status);
 
 -- Уведомления по домашкам
 CREATE TABLE IF NOT EXISTS notifications (
-  id            BIGSERIAL PRIMARY KEY,
-  id_hw         BIGINT NOT NULL REFERENCES homeworks(id_hw) ON DELETE CASCADE,
-  user_id       BIGINT NOT NULL REFERENCES users(id_user) ON DELETE CASCADE,
-  ts            TIMESTAMPTZ NOT NULL,
-  weekday       TEXT NOT NULL CHECK (weekday IN
-                 ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
-  status        TEXT NOT NULL DEFAULT 'pending'
+  id       BIGSERIAL PRIMARY KEY,
+  id_hw    BIGINT NOT NULL REFERENCES homeworks(id_hw) ON DELETE CASCADE,
+  user_id  BIGINT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
+  ts       TIMESTAMPTZ NOT NULL,
+  weekday  TEXT NOT NULL CHECK (weekday IN
+            ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
+  status   TEXT NOT NULL DEFAULT 'pending'
 );
 
 CREATE INDEX IF NOT EXISTS idx_notif_user_ts ON notifications(user_id, ts);

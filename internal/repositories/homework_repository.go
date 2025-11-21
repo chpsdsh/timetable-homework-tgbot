@@ -20,23 +20,16 @@ type HomeworkRepository interface {
 
 func (r *HomeworkRepo) Save(
 	ctx context.Context,
-	userID int64,
+	userID int64, // tg_id
 	lessonID, text string,
 ) error {
 	const q = `
 INSERT INTO homeworks (id_user, subject, homework_text, status)
-SELECT u.id_user, $2, $3, 'new'
-FROM users u
-WHERE u.tg_id = $1;
+VALUES ($1, $2, $3, 'new');
 `
-
-	res, err := r.DB.SQL.ExecContext(ctx, q, userID, lessonID, text)
+	_, err := r.DB.SQL.ExecContext(ctx, q, userID, lessonID, text)
 	if err != nil {
 		return fmt.Errorf("Save homework exec: %w", err)
-	}
-
-	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
-		return fmt.Errorf("Save homework: user with tg_id=%d not found", userID)
 	}
 
 	return nil
@@ -44,16 +37,14 @@ WHERE u.tg_id = $1;
 
 func (r *HomeworkRepo) Update(
 	ctx context.Context,
-	userID int64,
+	userID int64, // tg_id
 	lessonID, newText string,
 ) error {
 	const q = `
-UPDATE homeworks h
+UPDATE homeworks
 SET homework_text = $3
-WHERE h.subject = $2
-  AND h.id_user = (
-    SELECT id_user FROM users WHERE tg_id = $1
-  );
+WHERE subject = $2
+  AND id_user = $1;
 `
 	res, err := r.DB.SQL.ExecContext(ctx, q, userID, lessonID, newText)
 	if err != nil {
@@ -69,15 +60,13 @@ WHERE h.subject = $2
 
 func (r *HomeworkRepo) ListForLastWeek(
 	ctx context.Context,
-	userID int64,
+	userID int64, // tg_id
 ) ([]domain.HWBrief, error) {
 
 	const q = `
 SELECT h.id_hw, h.subject
 FROM homeworks h
-WHERE h.id_user = (
-    SELECT id_user FROM users WHERE tg_id = $1
-);
+WHERE h.id_user = $1;
 `
 
 	rows, err := r.DB.SQL.QueryContext(ctx, q, userID)

@@ -86,8 +86,7 @@ func KBDays(days []string) tgbotapi.ReplyKeyboardMarkup {
 func KBLessons(list []domain.LessonBrief) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
 	for _, l := range list {
-		label := fmt.Sprintf("%s (id:%s)", l.Title, l.ID)
-		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(label)))
+		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(l.Title)))
 	}
 	kb := tgbotapi.NewReplyKeyboard(rows...)
 	kb.ResizeKeyboard = true
