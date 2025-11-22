@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+	"log"
+	"strings"
 	"timetable-homework-tgbot/internal/domain"
-	"timetable-homework-tgbot/internal/domain/lesson"
 	"timetable-homework-tgbot/internal/infrastracture/database"
 )
 
 type LessonsRepository interface {
-	GetLessonsGroup(ctx context.Context, group string) ([]lesson.LessonStudent, error)
-	GetLessonsTeacher(ctx context.Context, teacherFio string) ([]lesson.LessonTeacher, error)
-	GetLessonsRoom(ctx context.Context, roomName string) ([]lesson.LessonRoom, error)
+	GetLessonsGroup(ctx context.Context, group string) ([]domain.LessonBrief, error)
+	GetLessonsTeacher(ctx context.Context, teacherFio string) ([]domain.LessonBrief, error)
+	GetLessonsRoom(ctx context.Context, roomName string) ([]domain.LessonBrief, error)
 	GetDaysWithLessonsByGroup(ctx context.Context, group string) ([]string, error)
 	LessonsByDayGroup(ctx context.Context, group, day string) ([]domain.LessonBrief, error)
 	LessonsByDayTeacher(ctx context.Context, teacherFio, day string) ([]domain.LessonBrief, error)
@@ -24,7 +24,7 @@ type LessonsRepo struct {
 	DB *database.DB
 }
 
-func (r *LessonsRepo) GetLessonsGroup(ctx context.Context, group string) ([]lesson.LessonStudent, error) {
+func (r *LessonsRepo) GetLessonsGroup(ctx context.Context, group string) ([]domain.LessonBrief, error) {
 	const q = `
 SELECT
     subject,
@@ -38,21 +38,22 @@ FROM group_schedule
 WHERE group_name = $1
 ORDER BY start_time;
 `
-
-	rows, err := r.DB.SQL.QueryContext(ctx, q, group)
+	log.Println("Querying group lessons :", group)
+	rows, err := r.DB.SQL.QueryContext(ctx, q, strings.TrimSpace(group))
 	if err != nil {
+		log.Println("Error querying group lessons :", err)
 		return nil, fmt.Errorf("GetLessonsGroup query: %w", err)
 	}
 	defer rows.Close()
 
-	var res []lesson.LessonStudent
+	var res []domain.LessonBrief
 
 	for rows.Next() {
 		var (
 			subject    string
 			lessonType sql.NullString
 			tutor      sql.NullString
-			startTime  time.Time
+			startTime  string
 			weekday    string
 			room       sql.NullString
 			week       sql.NullString
@@ -70,17 +71,16 @@ ORDER BY start_time;
 			return nil, fmt.Errorf("GetLessonsGroup scan: %w", err)
 		}
 
-		res = append(res, lesson.LessonStudent{
-			Subject:    subject,
+		res = append(res, domain.LessonBrief{
+			Title:      subject,
 			LessonType: nullToString(lessonType),
 			Tutor:      nullToString(tutor),
-			StartTime:  startTime.Format("15:04"), // TIME → "HH:MM"
+			StartTime:  startTime,
 			Weekday:    weekday,
 			Room:       nullToString(room),
 			Week:       nullToString(week),
 		})
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("GetLessonsGroup rows: %w", err)
 	}
@@ -88,7 +88,7 @@ ORDER BY start_time;
 	return res, nil
 }
 
-func (r *LessonsRepo) GetLessonsTeacher(ctx context.Context, teacherFio string) ([]lesson.LessonTeacher, error) {
+func (r *LessonsRepo) GetLessonsTeacher(ctx context.Context, teacherFio string) ([]domain.LessonBrief, error) {
 	const q = `
 SELECT
     subject,
@@ -103,20 +103,22 @@ WHERE teacher_fio = $1
 ORDER BY start_time;
 `
 
+	log.Println("Querying teacher lessons :", teacherFio)
+
 	rows, err := r.DB.SQL.QueryContext(ctx, q, teacherFio)
 	if err != nil {
 		return nil, fmt.Errorf("GetLessonsTeacher query: %w", err)
 	}
 	defer rows.Close()
 
-	var res []lesson.LessonTeacher
+	var res []domain.LessonBrief
 
 	for rows.Next() {
 		var (
 			subject    string
 			lessonType sql.NullString
-			groups     []string
-			startTime  time.Time
+			groups     string
+			startTime  string
 			weekday    string
 			room       sql.NullString
 			week       sql.NullString
@@ -134,11 +136,11 @@ ORDER BY start_time;
 			return nil, fmt.Errorf("GetLessonsTeacher scan: %w", err)
 		}
 
-		res = append(res, lesson.LessonTeacher{
-			Subject:    subject,
+		res = append(res, domain.LessonBrief{
+			Title:      subject,
 			LessonType: nullToString(lessonType),
 			Groups:     groups,
-			StartTime:  startTime.Format("15:04"),
+			StartTime:  startTime,
 			Weekday:    weekday,
 			Room:       nullToString(room),
 			Week:       nullToString(week),
@@ -152,7 +154,7 @@ ORDER BY start_time;
 	return res, nil
 }
 
-func (r *LessonsRepo) GetLessonsRoom(ctx context.Context, roomName string) ([]lesson.LessonRoom, error) {
+func (r *LessonsRepo) GetLessonsRoom(ctx context.Context, roomName string) ([]domain.LessonBrief, error) {
 	const q = `
 SELECT
     subject,
@@ -166,22 +168,24 @@ FROM room_schedule
 WHERE room_name = $1
 ORDER BY start_time;
 `
+
+	log.Println("Querying room lessons :", roomName)
 	rows, err := r.DB.SQL.QueryContext(ctx, q, roomName)
 	if err != nil {
 		return nil, fmt.Errorf("GetLessonsRoom query: %w", err)
 	}
 	defer rows.Close()
 
-	var res []lesson.LessonRoom
+	var res []domain.LessonBrief
 
 	for rows.Next() {
 		var (
 			subject    string
 			lessonType sql.NullString
 			tutor      sql.NullString
-			startTime  time.Time
+			startTime  string
 			weekday    string
-			groups     []string
+			groups     string
 			week       sql.NullString
 		)
 
@@ -197,11 +201,11 @@ ORDER BY start_time;
 			return nil, fmt.Errorf("GetLessonsRoom scan: %w", err)
 		}
 
-		res = append(res, lesson.LessonRoom{
-			Subject:    subject,
+		res = append(res, domain.LessonBrief{
+			Title:      subject,
 			LessonType: nullToString(lessonType),
 			Tutor:      nullToString(tutor),
-			StartTime:  startTime.Format("15:04"),
+			StartTime:  startTime,
 			Weekday:    weekday,
 			Groups:     groups,
 			Week:       nullToString(week),
@@ -277,7 +281,7 @@ ORDER BY start_time;
 			subject    string
 			lessonType sql.NullString
 			tutor      sql.NullString
-			startTime  time.Time
+			startTime  string
 			weekday    string
 			room       sql.NullString
 			week       sql.NullString
@@ -299,10 +303,10 @@ ORDER BY start_time;
 			Title:      subject,
 			LessonType: nullToString(lessonType),
 			Tutor:      nullToString(tutor),
-			StartTime:  startTime.Format("15:04"),
+			StartTime:  startTime,
 			Weekday:    weekday,
 			Room:       nullToString(room),
-			Groups:     []string{group},
+			Groups:     group,
 			Week:       nullToString(week),
 		})
 	}
@@ -338,8 +342,8 @@ ORDER BY start_time;
 		var (
 			subject    string
 			lessonType sql.NullString
-			groups     []string
-			startTime  time.Time
+			groups     string
+			startTime  string
 			weekday    string
 			room       sql.NullString
 			week       sql.NullString
@@ -361,7 +365,7 @@ ORDER BY start_time;
 			Title:      subject,
 			LessonType: nullToString(lessonType),
 			Tutor:      teacherFio,
-			StartTime:  startTime.Format("15:04"),
+			StartTime:  startTime,
 			Weekday:    weekday,
 			Room:       nullToString(room),
 			Groups:     groups,
@@ -401,9 +405,9 @@ ORDER BY start_time;
 			subject    string
 			lessonType sql.NullString
 			tutor      sql.NullString
-			startTime  time.Time
+			startTime  string
 			weekday    string
-			groups     []string
+			groups     string
 			week       sql.NullString
 		)
 
@@ -423,7 +427,7 @@ ORDER BY start_time;
 			Title:      subject,
 			LessonType: nullToString(lessonType),
 			Tutor:      nullToString(tutor),
-			StartTime:  startTime.Format("15:04"),
+			StartTime:  startTime,
 			Weekday:    weekday,
 			Room:       roomName,
 			Groups:     groups,

@@ -32,19 +32,19 @@ func NewNotificationFake(auth AuthController) NotificationController {
 
 func (n *notify) SetWeeklyReminder(ctx context.Context, userID int64, homeworkID string, weekday time.Weekday, hhmm string) error {
 	// TODO(DB): сохранить напоминание (weekly) в БД с расчётом next_at с учётом TZ пользователя
-	tz, err := n.auth.UserTZ(ctx, userID)
-	if err != nil {
-		return err
-	}
-	loc, _ := time.LoadLocation(tz)
-	now := time.Now().In(loc)
-	next := computeNextWeekly(weekday, hhmm, now).UTC()
-
-	n.mu.Lock()
-	n.data = append(n.data, reminder{
-		UserID: userID, HWID: homeworkID, Weekday: weekday, HHMM: hhmm, NextAtUTC: next,
-	})
-	n.mu.Unlock()
+	//tz, err := n.auth.UserTZ(ctx, userID)
+	//if err != nil {
+	//	return err
+	//}
+	//loc, _ := time.LoadLocation(tz)
+	//now := time.Now().In(loc)
+	//next := computeNextWeekly(weekday, hhmm, now).UTC()
+	//
+	//n.mu.Lock()
+	//n.data = append(n.data, reminder{
+	//	UserID: userID, HWID: homeworkID, Weekday: weekday, HHMM: hhmm, NextAtUTC: next,
+	//})
+	//n.mu.Unlock()
 	return nil
 }
 

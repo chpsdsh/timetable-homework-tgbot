@@ -74,7 +74,7 @@ func (b *Bot) Run(ctx context.Context) error {
 
 func (b *Bot) handleMessage(parent context.Context, upd tgbotapi.Update) {
 	m := upd.Message
-	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 
 	chatID := m.Chat.ID

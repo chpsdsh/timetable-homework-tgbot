@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"timetable-homework-tgbot/internal/infrastracture/controllers"
@@ -26,7 +27,7 @@ func NewWithDeps(
 	notificationRepo repositories.NotificationRepository,
 ) (*App, error) {
 
-	// Контроллеры — ФЕЙКИ с TODO(DB)
+	// Контроллеры — ФЕЙКИ с
 	authCtl := controllers.NewAuthController(userRepo, lessonRepo)
 	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
 	notifCtl := controllers.NewNotificationFake(authCtl)
@@ -99,6 +100,7 @@ func NewFromEnv(
 	}
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
+		log.Println("Error creating telegram bot:", err)
 		return nil, err
 	}
 	return NewWithDeps(api, users, lessons, hw, notifs)

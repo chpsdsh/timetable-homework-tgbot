@@ -11,7 +11,7 @@ import (
 	httpparser "timetable-homework-tgbot/internal/infrastracture/parser"
 )
 
-const workers = 10
+const workers = 40
 
 func (d *DB) FillDatabase() error {
 	ctx := context.Background()
@@ -37,13 +37,11 @@ func (d *DB) FillDatabase() error {
 
 func (d *DB) fillGroupsParallel(ctx context.Context) error {
 	faculties := httpparser.ParseFaculties()
-
 	var allGroups []urlselector.Group
 	for _, faculty := range faculties {
 		groups := httpparser.ParseGroups(faculty.FullUrl)
 		allGroups = append(allGroups, groups...)
 	}
-
 	jobs := make(chan urlselector.Group, workers)
 	errCh := make(chan error, 1)
 

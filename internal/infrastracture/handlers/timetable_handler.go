@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"strings"
 	"timetable-homework-tgbot/internal/infrastracture/controllers"
+	"timetable-homework-tgbot/internal/infrastracture/formatter"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -37,7 +39,13 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 	timetable := h.lessonsController.GetTimetableGroup(ctx, group)
 
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание группы: "+timetable, telegram.KBMember())
+	parts := formatter.SplitForTelegram(timetable)
+	for _, part := range parts {
+		if err := h.bot.Send(chatID, part, telegram.KBMember()); err != nil {
+			log.Println("send timetable part:", err)
+			break
+		}
+	}
 }
 
 func (h *TimetableHandler) AskTeacher(ctx context.Context, u tgbotapi.Update) {
@@ -52,9 +60,14 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 	teacher := strings.TrimSpace(m.Text)
 
 	timetable := h.lessonsController.GetTimetableTeacher(ctx, teacher)
-
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание преподавателя: "+timetable, telegram.KBMember())
+	parts := formatter.SplitForTelegram(timetable)
+	for _, part := range parts {
+		if err := h.bot.Send(chatID, part, telegram.KBMember()); err != nil {
+			log.Println("send timetable part:", err)
+			break
+		}
+	}
 }
 
 func (h *TimetableHandler) AskRoom(ctx context.Context, u tgbotapi.Update) {
@@ -69,7 +82,13 @@ func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 	room := strings.TrimSpace(m.Text)
 
 	timetable := h.lessonsController.GetTimetableRoom(ctx, room)
-
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание аудитории: "+timetable, telegram.KBMember())
+
+	parts := formatter.SplitForTelegram(timetable)
+	for _, part := range parts {
+		if err := h.bot.Send(chatID, part, telegram.KBMember()); err != nil {
+			log.Println("send timetable part:", err)
+			break
+		}
+	}
 }

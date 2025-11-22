@@ -7,7 +7,7 @@ type LessonBrief struct {
 	StartTime  string
 	Weekday    string
 	Room       string
-	Groups     []string
+	Groups     string
 	Week       string
 }
 

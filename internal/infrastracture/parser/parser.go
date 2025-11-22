@@ -146,22 +146,39 @@ func ParseFaculties() []urlselector.Faculty {
 	return faculties
 }
 
-func ParseGroups(facultyUrl string) []urlselector.Group {
+func ParseGroups(facultyURL string) []urlselector.Group {
 	groups := make([]urlselector.Group, 0)
-	resp, err := http.Get(facultyUrl)
+	seen := make(map[string]struct{})
+
+	resp, err := http.Get(facultyURL)
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
+
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		panic(err)
 	}
+
 	doc.Find("a.group").Each(func(i int, s *goquery.Selection) {
 		name := strings.TrimSpace(s.Text())
 		href, _ := s.Attr("href")
-		groups = append(groups, urlselector.Group{GroupName: name, GroupUrl: href})
+
+		// ключ для уникальности
+		key := name + "|" + href
+		if _, ok := seen[key]; ok {
+			// уже добавляли такую группу → пропускаем
+			return
+		}
+		seen[key] = struct{}{}
+
+		groups = append(groups, urlselector.Group{
+			GroupName: name,
+			GroupUrl:  href,
+		})
 	})
+
 	return groups
 }
 

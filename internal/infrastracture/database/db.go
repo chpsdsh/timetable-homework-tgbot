@@ -25,8 +25,8 @@ func NewDB(ctx context.Context) (*DB, error) {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(20)
-	db.SetMaxIdleConns(20)
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(50)
 	db.SetConnMaxLifetime(30 * time.Minute)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
