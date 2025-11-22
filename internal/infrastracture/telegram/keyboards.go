@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"fmt"
+	"time"
 
 	"timetable-homework-tgbot/internal/domain"
 
@@ -104,12 +105,25 @@ func KBHomeworks(list []domain.HWBrief) tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBWeekdays() tgbotapi.ReplyKeyboardMarkup {
-	d := []string{"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
-	kb := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(d[0]), tgbotapi.NewKeyboardButton(d[1]), tgbotapi.NewKeyboardButton(d[2]), tgbotapi.NewKeyboardButton(d[3])),
-		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(d[4]), tgbotapi.NewKeyboardButton(d[5]), tgbotapi.NewKeyboardButton(d[6])),
-	)
+func KBWeekdays(today time.Time) tgbotapi.ReplyKeyboardMarkup {
+	const days = 8
+
+	rows := make([][]tgbotapi.KeyboardButton, 0)
+
+	for i := 0; i < days; i++ {
+		d := today.AddDate(0, 0, i)
+		text := d.Format("02.01.2006")
+
+		btn := tgbotapi.NewKeyboardButton(text)
+
+		if i%4 == 0 {
+			rows = append(rows, tgbotapi.NewKeyboardButtonRow(btn))
+		} else {
+			rows[len(rows)-1] = append(rows[len(rows)-1], btn)
+		}
+	}
+
+	kb := tgbotapi.NewReplyKeyboard(rows...)
 	kb.ResizeKeyboard = true
 	return kb
 }

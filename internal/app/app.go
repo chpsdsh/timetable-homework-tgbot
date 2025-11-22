@@ -18,7 +18,6 @@ type App struct {
 	bot *telegram.Bot
 }
 
-// NewWithDeps — сигнатуру не меняем, но deps сейчас игнорим (всё фейково).
 func NewWithDeps(
 	api *tgbotapi.BotAPI,
 	userRepo repositories.UsersRepository,
@@ -30,7 +29,7 @@ func NewWithDeps(
 	// Контроллеры — ФЕЙКИ с
 	authCtl := controllers.NewAuthController(userRepo, lessonRepo)
 	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
-	notifCtl := controllers.NewNotificationFake(authCtl)
+	notifCtl := controllers.NewNotificationController(notificationRepo)
 	lessonCtl := controllers.NewLessonController(lessonRepo)
 
 	// Telegram

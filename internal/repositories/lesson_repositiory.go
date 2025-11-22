@@ -221,9 +221,10 @@ ORDER BY start_time;
 
 func (r *LessonsRepo) GetDaysWithLessonsByGroup(ctx context.Context, group string) ([]string, error) {
 	const q = `
-SELECT DISTINCT weekday
+SELECT weekday
 FROM group_schedule
 WHERE group_name = $1
+GROUP BY weekday
 ORDER BY CASE weekday
     WHEN 'Понедельник' THEN 1
     WHEN 'Вторник'     THEN 2

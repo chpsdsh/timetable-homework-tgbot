@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 	"timetable-homework-tgbot/internal/repositories"
 
@@ -43,6 +44,7 @@ func (c *hw) DaysWithLessons(ctx context.Context, userID int64) ([]string, error
 
 	days, err := c.lessonsRepo.GetDaysWithLessonsByGroup(ctx, group)
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
 
@@ -64,7 +66,7 @@ func (c *hw) LessonsByDay(ctx context.Context, userID int64, day string) ([]doma
 }
 
 func (c *hw) Pin(ctx context.Context, userID int64, day string, lessonID, text string) error {
-	if err := c.homeworkRepo.Save(ctx, userID, lessonID, fmt.Sprintf("%s • %s", day, text)); err != nil {
+	if err := c.homeworkRepo.Save(ctx, userID, fmt.Sprintf("%s(%s)", lessonID, day), fmt.Sprintf("• %s", text)); err != nil {
 		return err
 	}
 	return nil

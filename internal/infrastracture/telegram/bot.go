@@ -27,11 +27,15 @@ const (
 	StateWaitRemindChooseTime = "wait_remind_time"
 )
 
-type HwSession struct{ Day, LessonID string }
+type HwSession struct {
+	Day         string
+	LessonTitle string
+}
+
 type RemindSession struct {
-	HomeworkID string
-	Weekday    time.Weekday
-	TimeHHMM   string
+	SubjectWithTask string
+	Date            string
+	TimeHHMM        string
 }
 
 type Bot struct {

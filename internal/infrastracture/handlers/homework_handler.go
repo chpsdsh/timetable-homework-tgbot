@@ -49,15 +49,13 @@ func (h *HWHandler) WaitDay(ctx context.Context, u tgbotapi.Update) {
 
 func (h *HWHandler) WaitLesson(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	id, ok := telegram.ExtractIDFromLabel(strings.TrimSpace(u.Message.Text))
-	if !ok {
-		_ = h.bot.Send(chatID, "Нажми кнопку ещё раз.", telegram.KBMember())
-		return
-	}
+	lesson := strings.TrimSpace(u.Message.Text)
+
 	s := h.bot.HWSessGet(chatID)
-	s.LessonID = id
+	s.LessonTitle = lesson
 	h.bot.HWSessSet(chatID, s)
 	curr := h.bot.State.Get(chatID)
+
 	if strings.HasPrefix(curr, telegram.StateWaitHWEditLesson) {
 		h.bot.State.Set(chatID, telegram.StateWaitHWTextEdit)
 	} else {
@@ -70,13 +68,14 @@ func (h *HWHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	text := strings.TrimSpace(u.Message.Text)
 	s := h.bot.HWSessGet(chatID)
-	if s.Day == "" || s.LessonID == "" {
+	if s.Day == "" || s.LessonTitle == "" {
 		_ = h.bot.Send(chatID, "Сессия потерялась, начни заново.", telegram.KBMember())
 		h.bot.State.Del(chatID)
 		return
 	}
-	if err := h.hw.Pin(ctx, userID, s.Day, s.LessonID, text); err != nil {
+	if err := h.hw.Pin(ctx, userID, s.Day, s.LessonTitle, text); err != nil {
 		_ = h.bot.Send(chatID, "Не удалось прикрепить домашнее задание", telegram.KBMember())
+		h.bot.State.Del(chatID)
 		return
 	}
 	h.bot.State.Del(chatID)
@@ -104,15 +103,18 @@ func (h *HWHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 		return
 	}
 	s := h.bot.HWSessGet(chatID)
-	if s.LessonID == "" {
+	if s.LessonTitle == "" {
 		_ = h.bot.Send(chatID, "Не удалось определить пару.", telegram.KBMember())
 		h.bot.State.Del(chatID)
 		return
 	}
-	if err := h.hw.Update(ctx, userID, s.LessonID, newText); err != nil {
+
+	if err := h.hw.Update(ctx, userID, s.LessonTitle, newText); err != nil {
 		_ = h.bot.Send(chatID, "Не удалось обновить домашнее задание", telegram.KBMember())
+		h.bot.State.Del(chatID)
 		return
 	}
+
 	h.bot.State.Del(chatID)
 	h.bot.HWSessDel(chatID)
 	_ = h.bot.Send(chatID, "Домашнее задание обновлено ✅", telegram.KBMember())

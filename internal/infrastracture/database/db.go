@@ -50,7 +50,7 @@ func (d *DB) InitSchema(ctx context.Context) error {
 	const schema = `
 -- Пользователи
 CREATE TABLE IF NOT EXISTS users (
-  tg_id   BIGINT PRIMARY KEY,     -- основной и единственный ключ пользователя
+  tg_id   BIGINT PRIMARY KEY,     
   "group" TEXT
 );
 
@@ -61,7 +61,6 @@ CREATE TABLE IF NOT EXISTS homeworks (
   id_user       BIGINT NOT NULL,
   subject       TEXT  NOT NULL,
   homework_text TEXT  NOT NULL,
-  status        TEXT  NOT NULL DEFAULT 'new',
 
   CONSTRAINT fk_homeworks_user
     FOREIGN KEY (id_user) REFERENCES users(tg_id) ON DELETE CASCADE,
@@ -71,30 +70,19 @@ CREATE TABLE IF NOT EXISTS homeworks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_hw_user   ON homeworks(id_user);
-CREATE INDEX IF NOT EXISTS idx_hw_status ON homeworks(status);
 
 -- Уведомления по домашкам
 CREATE TABLE IF NOT EXISTS notifications (
-  id       BIGSERIAL PRIMARY KEY,
-
   user_id  BIGINT NOT NULL,
   subject  TEXT   NOT NULL,
-
   ts       TIMESTAMPTZ NOT NULL,
-  weekday  TEXT NOT NULL CHECK (weekday IN
-            ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
-  status   TEXT NOT NULL DEFAULT 'pending',
 
   CONSTRAINT fk_notifications_user
-    FOREIGN KEY (user_id) REFERENCES users(tg_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(tg_id) ON DELETE CASCADE
 
-  CONSTRAINT fk_notifications_hw
-    FOREIGN KEY (user_id, subject)
-      REFERENCES homeworks(id_user, subject) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_notif_user_ts ON notifications(user_id, ts);
-CREATE INDEX IF NOT EXISTS idx_notif_status  ON notifications(status);
 
 -- Расписание групп
 CREATE TABLE IF NOT EXISTS group_schedule (

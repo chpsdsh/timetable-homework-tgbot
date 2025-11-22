@@ -13,8 +13,6 @@ type memoryState struct {
 	m  map[int64]string
 }
 
-func NewMemoryState() StateStore { return &memoryState{m: map[int64]string{}} }
-
 func (s *memoryState) Get(id int64) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

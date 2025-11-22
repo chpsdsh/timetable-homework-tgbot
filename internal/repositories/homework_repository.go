@@ -23,8 +23,8 @@ func (r *HomeworkRepo) Save(
 	lessonID, text string,
 ) error {
 	const q = `
-INSERT INTO homeworks (id_user, subject, homework_text, status)
-VALUES ($1, $2, $3, 'new');
+INSERT INTO homeworks (id_user, subject, homework_text)
+VALUES ($1, $2, $3);
 `
 	_, err := r.DB.SQL.ExecContext(ctx, q, userID, lessonID, text)
 	if err != nil {
@@ -59,7 +59,7 @@ WHERE subject = $2
 
 func (r *HomeworkRepo) ListForLastWeek(
 	ctx context.Context,
-	userID int64, // tg_id
+	userID int64,
 ) ([]domain.HWBrief, error) {
 
 	const q = `

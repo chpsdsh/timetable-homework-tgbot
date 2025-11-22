@@ -2,60 +2,41 @@ package controllers
 
 import (
 	"context"
-	"sync"
 	"time"
+	"timetable-homework-tgbot/internal/repositories"
 )
 
 type NotificationController interface {
-	SetWeeklyReminder(ctx context.Context, userID int64, homeworkID string, weekday time.Weekday, hhmm string) error
+	SetReminder(ctx context.Context, userID int64, subject, weekday, hhmm string) error
 }
 
-// ФАЛЬСИФИЦИРОВАННО: in-memory.
-type reminder struct {
-	UserID    int64
-	HWID      string
-	Weekday   time.Weekday
-	HHMM      string
-	NextAtUTC time.Time
+type notificationController struct {
+	notificationRepo repositories.NotificationRepository
 }
 
-type notify struct {
-	mu   sync.Mutex
-	data []reminder
-
-	auth AuthController // нужен, чтобы взять TZ пользователя (как в реальной версии)
+func NewNotificationController(notificationRepo repositories.NotificationRepository) NotificationController {
+	return &notificationController{notificationRepo: notificationRepo}
 }
 
-func NewNotificationFake(auth AuthController) NotificationController {
-	return &notify{auth: auth}
-}
-
-func (n *notify) SetWeeklyReminder(ctx context.Context, userID int64, homeworkID string, weekday time.Weekday, hhmm string) error {
-	// TODO(DB): сохранить напоминание (weekly) в БД с расчётом next_at с учётом TZ пользователя
-	//tz, err := n.auth.UserTZ(ctx, userID)
-	//if err != nil {
-	//	return err
-	//}
-	//loc, _ := time.LoadLocation(tz)
-	//now := time.Now().In(loc)
-	//next := computeNextWeekly(weekday, hhmm, now).UTC()
-	//
-	//n.mu.Lock()
-	//n.data = append(n.data, reminder{
-	//	UserID: userID, HWID: homeworkID, Weekday: weekday, HHMM: hhmm, NextAtUTC: next,
-	//})
-	//n.mu.Unlock()
+func (n *notificationController) SetReminder(ctx context.Context, userID int64, subject, date, hhmm string) error {
+	t, err := parseNotificationTime(date, hhmm)
+	if err != nil {
+		return err
+	}
+	if err := n.notificationRepo.AddNotification(ctx, userID, subject, t); err != nil {
+		return err
+	}
 	return nil
 }
 
-// утилита (как у тебя)
-func computeNextWeekly(wd time.Weekday, hhmm string, from time.Time) time.Time {
-	hh := int((hhmm[0]-'0')*10 + (hhmm[1] - '0'))
-	mm := int((hhmm[3]-'0')*10 + (hhmm[4] - '0'))
-	delta := (int(wd) - int(from.Weekday()) + 7) % 7
-	cand := time.Date(from.Year(), from.Month(), from.Day(), hh, mm, 0, 0, from.Location()).AddDate(0, 0, delta)
-	if !cand.After(from) {
-		cand = cand.AddDate(0, 0, 7)
+func parseNotificationTime(dateStr, timeStr string) (time.Time, error) {
+	const layout = "02.01.2006 15:04"
+
+	combined := dateStr + " " + timeStr
+
+	t, err := time.ParseInLocation(layout, combined, time.Local)
+	if err != nil {
+		return time.Time{}, err
 	}
-	return cand
+	return t, nil
 }
