@@ -22,6 +22,7 @@ const (
 	StateWaitHWEditDay        = "wait_edit_hw_day"
 	StateWaitHWEditLesson     = "wait_edit_hw_lesson"
 	StateWaitHWTextEdit       = "wait_edit_hw_text"
+	StateWaitHWTable          = "wait_hw_table"
 	StateWaitRemindChooseHW   = "wait_remind_hw"
 	StateWaitRemindChooseDay  = "wait_remind_day"
 	StateWaitRemindChooseTime = "wait_remind_time"

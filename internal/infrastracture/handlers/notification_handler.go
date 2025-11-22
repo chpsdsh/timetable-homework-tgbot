@@ -90,7 +90,7 @@ func (h *NotifyHandler) StartDeleteNotification(ctx context.Context, u tgbotapi.
 	list, err := h.ctl.GetUserNotifications(ctx, userID)
 
 	if err != nil || len(list) == 0 {
-		_ = h.bot.Send(chatID, "За уведомлений не найдено.", telegram.KBMember())
+		_ = h.bot.Send(chatID, "Напоминаний не найдено.", telegram.KBMember())
 		return
 	}
 	h.bot.State.Set(chatID, telegram.StateWaitRemindChoose)
@@ -108,6 +108,51 @@ func (h *NotifyHandler) WaitDeleteNotification(ctx context.Context, u tgbotapi.U
 	}
 	h.bot.State.Del(chatID)
 	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание удалено: %s ✅", not), telegram.KBMember())
+}
+
+func (h *NotifyHandler) StartNotificationWorker(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+		log.Println("ticker Started")
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				log.Println("tick")
+				h.checkPendingNotifications(ctx)
+			}
+		}
+	}()
+}
+
+func (h *NotifyHandler) checkPendingNotifications(ctx context.Context) {
+	pending, err := h.ctl.GetPendingNotifications(ctx)
+	log.Println(pending)
+	if err != nil {
+		log.Println("GetPendingNotifications:", err)
+		return
+	}
+
+	for _, n := range pending {
+
+		text := fmt.Sprintf(
+			"Напоминание по предмету %s на %s",
+			n.Subject,
+			n.Timestamp.Format("02.01.2006 15:04"),
+		)
+		log.Println(text)
+		if err := h.bot.Send(n.UserID, text, telegram.KBMember()); err != nil {
+			log.Println("send notif:", err)
+			continue
+		}
+
+		if err := h.ctl.DeleteUserNotificationWithTs(ctx, n.UserID, n.Subject, n.Timestamp); err != nil {
+			log.Println("delete notif:", err)
+		}
+	}
+
 }
 
 func isHHMM(s string) bool {

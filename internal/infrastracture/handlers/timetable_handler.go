@@ -34,14 +34,30 @@ func (h *TimetableHandler) AskGroup(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
+	userId := u.Message.From.ID
 	group := strings.TrimSpace(m.Text)
 
 	timetable := h.lessonsController.GetTimetableGroup(ctx, group)
 
 	h.bot.State.Del(chatID)
+
+	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	if err != nil {
+		log.Println(err)
+		h.bot.State.Del(chatID)
+		return
+	}
+	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
+	if joined {
+		keyboardFunc = telegram.KBMember
+	} else {
+		keyboardFunc = telegram.KBGuest
+	}
+
 	parts := formatter.SplitForTelegram(timetable)
+
 	for _, part := range parts {
-		if err := h.bot.Send(chatID, part, telegram.KBMember()); err != nil {
+		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
 			log.Println("send timetable part:", err)
 			break
 		}
@@ -57,13 +73,29 @@ func (h *TimetableHandler) AskTeacher(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
+	userId := u.Message.From.ID
 	teacher := strings.TrimSpace(m.Text)
 
 	timetable := h.lessonsController.GetTimetableTeacher(ctx, teacher)
 	h.bot.State.Del(chatID)
+
+	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	if err != nil {
+		log.Println(err)
+		h.bot.State.Del(chatID)
+		return
+	}
+	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
+	if joined {
+		keyboardFunc = telegram.KBMember
+	} else {
+		keyboardFunc = telegram.KBGuest
+	}
+
 	parts := formatter.SplitForTelegram(timetable)
+
 	for _, part := range parts {
-		if err := h.bot.Send(chatID, part, telegram.KBMember()); err != nil {
+		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
 			log.Println("send timetable part:", err)
 			break
 		}
@@ -79,14 +111,26 @@ func (h *TimetableHandler) AskRoom(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
+	userId := u.Message.From.ID
 	room := strings.TrimSpace(m.Text)
 
 	timetable := h.lessonsController.GetTimetableRoom(ctx, room)
 	h.bot.State.Del(chatID)
-
+	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	if err != nil {
+		log.Println(err)
+		h.bot.State.Del(chatID)
+		return
+	}
+	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
+	if joined {
+		keyboardFunc = telegram.KBMember
+	} else {
+		keyboardFunc = telegram.KBGuest
+	}
 	parts := formatter.SplitForTelegram(timetable)
 	for _, part := range parts {
-		if err := h.bot.Send(chatID, part, telegram.KBMember()); err != nil {
+		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
 			log.Println("send timetable part:", err)
 			break
 		}

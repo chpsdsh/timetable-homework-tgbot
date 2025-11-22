@@ -24,13 +24,14 @@ func NewWithDeps(
 	lessonRepo repositories.LessonsRepository,
 	homeworkRepo repositories.HomeworkRepository,
 	notificationRepo repositories.NotificationRepository,
+	ctx context.Context,
 ) (*App, error) {
 
 	// Контроллеры — ФЕЙКИ с
 	authCtl := controllers.NewAuthController(userRepo, lessonRepo)
 	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
 	notifCtl := controllers.NewNotificationController(notificationRepo)
-	lessonCtl := controllers.NewLessonController(lessonRepo)
+	lessonCtl := controllers.NewLessonController(lessonRepo, userRepo)
 
 	// Telegram
 	state := telegram.NewMemState()
@@ -69,9 +70,10 @@ func NewWithDeps(
 	r.OnState(telegram.StateWaitHWText, hwH.WaitText)
 
 	r.OnText(telegram.BtnChangeHW, hwH.EditStart)
-	r.OnState(telegram.StateWaitHWEditDay, hwH.WaitDay)
-	r.OnState(telegram.StateWaitHWEditLesson, hwH.WaitLesson)
+	r.OnState(telegram.StateWaitHWTable, hwH.WaitHomeWorkTable)
 	r.OnState(telegram.StateWaitHWTextEdit, hwH.WaitTextEdit)
+
+	r.OnText(telegram.BtnWatchHomeworks, hwH.ListHomeworks)
 
 	// Напоминания
 	r.OnText(telegram.BtnConfReminder, ntH.Start)
@@ -81,6 +83,7 @@ func NewWithDeps(
 	r.OnState(telegram.StateWaitRemindChooseTime, ntH.WaitChooseTime)
 	r.OnState(telegram.StateWaitRemindChoose, ntH.WaitDeleteNotification)
 
+	ntH.StartNotificationWorker(ctx)
 	// дефолт
 	r.Default(func(ctx context.Context, u tgbotapi.Update) {
 		_ = bot.Send(u.Message.Chat.ID, "Нажми кнопку меню или /start", telegram.KBMember())
@@ -94,6 +97,7 @@ func NewFromEnv(
 	lessons repositories.LessonsRepository,
 	hw repositories.HomeworkRepository,
 	notifs repositories.NotificationRepository,
+	ctx context.Context,
 ) (*App, error) {
 	token := os.Getenv("TELEGRAM_BOT_TOKEN")
 	if token == "" {
@@ -104,7 +108,7 @@ func NewFromEnv(
 		log.Println("Error creating telegram bot:", err)
 		return nil, err
 	}
-	return NewWithDeps(api, users, lessons, hw, notifs)
+	return NewWithDeps(api, users, lessons, hw, notifs, ctx)
 }
 
 func (a *App) Run(ctx context.Context) error { return a.bot.Run(ctx) }

@@ -12,7 +12,9 @@ import (
 type NotificationController interface {
 	SetReminder(ctx context.Context, userID int64, subject, weekday, hhmm string) error
 	GetUserNotifications(ctx context.Context, userID int64) ([]domain.Notification, error)
+	GetPendingNotifications(ctx context.Context) ([]domain.Notification, error)
 	DeleteUserNotification(ctx context.Context, userID int64, notification string) error
+	DeleteUserNotificationWithTs(ctx context.Context, userID int64, subject string, ts time.Time) error
 }
 
 type notificationController struct {
@@ -51,6 +53,21 @@ func (n *notificationController) DeleteUserNotification(ctx context.Context, use
 		return err
 	}
 	return nil
+}
+
+func (n *notificationController) DeleteUserNotificationWithTs(ctx context.Context, userID int64, subject string, ts time.Time) error {
+	if err := n.notificationRepo.DeleteNotification(ctx, userID, subject, ts); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (n *notificationController) GetPendingNotifications(ctx context.Context) ([]domain.Notification, error) {
+	not, err := n.notificationRepo.GetPendingNotifications(ctx, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	return not, nil
 }
 
 func parseNotificationTime(dateStr, timeStr string) (time.Time, error) {

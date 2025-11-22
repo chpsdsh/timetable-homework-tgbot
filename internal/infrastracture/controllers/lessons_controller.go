@@ -8,6 +8,7 @@ import (
 )
 
 type LessonsController interface {
+	EnsureJoined(ctx context.Context, userID int64) (bool, error)
 	GetTimetableGroup(ctx context.Context, group string) string
 	GetTimetableTeacher(ctx context.Context, teacherFio string) string
 	GetTimetableRoom(ctx context.Context, room string) string
@@ -15,10 +16,19 @@ type LessonsController interface {
 
 type lessonsController struct {
 	lessonsRepo repositories.LessonsRepository
+	userRepo    repositories.UsersRepository
 }
 
-func NewLessonController(lessonsRepo repositories.LessonsRepository) LessonsController {
-	return &lessonsController{lessonsRepo: lessonsRepo}
+func NewLessonController(lessonsRepo repositories.LessonsRepository, userRepo repositories.UsersRepository) LessonsController {
+	return &lessonsController{lessonsRepo: lessonsRepo, userRepo: userRepo}
+}
+
+func (l *lessonsController) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
+	group, err := l.userRepo.GetGroup(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return group != "", nil
 }
 
 func (l *lessonsController) GetTimetableGroup(ctx context.Context, group string) string {

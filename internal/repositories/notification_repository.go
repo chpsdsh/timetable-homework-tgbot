@@ -42,7 +42,7 @@ func (r *NotificationRepo) GetPendingNotifications(
 ) ([]domain.Notification, error) {
 
 	const q = `
-SELECT id, user_id, subject, ts, weekday, status
+SELECT  user_id, subject, ts
 FROM notifications
 WHERE ts <= $1
 ORDER BY ts

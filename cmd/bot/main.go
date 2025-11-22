@@ -31,20 +31,18 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
 
-	// Инициализируй реальные репозитории тут (db := sql.Open(...)):
 	var usersRepo repositories.UsersRepository = &repositories.UserRepo{DB: db}
 	var lessonsRepo repositories.LessonsRepository = &repositories.LessonsRepo{DB: db}
 	var hwRepo repositories.HomeworkRepository = &repositories.HomeworkRepo{DB: db}
 	var notifRepo repositories.NotificationRepository = &repositories.NotificationRepo{DB: db}
 
-	// Собираем приложение из ENV (создаст tgbotapi.BotAPI сам)
-	a, err := app.NewFromEnv(usersRepo, lessonsRepo, hwRepo, notifRepo)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	a, err := app.NewFromEnv(usersRepo, lessonsRepo, hwRepo, notifRepo, ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	if err := a.Run(ctx); err != nil {
 		log.Fatal(err)

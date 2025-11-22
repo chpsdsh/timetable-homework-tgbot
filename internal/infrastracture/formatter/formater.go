@@ -10,7 +10,7 @@ const telegramMaxLen = 4000
 
 func FormatTimetable(lessons []domain.LessonBrief) string {
 	if len(lessons) == 0 {
-		return "нет пар"
+		return "расписание не найдено"
 	}
 
 	weekdayOrder := []string{
@@ -22,7 +22,6 @@ func FormatTimetable(lessons []domain.LessonBrief) string {
 		"Суббота",
 	}
 
-	// сгруппировать по дню недели
 	byDay := make(map[string][]domain.LessonBrief)
 	for _, l := range lessons {
 		byDay[l.Weekday] = append(byDay[l.Weekday], l)
@@ -39,7 +38,6 @@ func FormatTimetable(lessons []domain.LessonBrief) string {
 		fmt.Fprintf(&b, "%s:\n", day)
 
 		for _, l := range dayLessons {
-			// базовая часть: время + название
 			line := fmt.Sprintf("  %s %s", l.StartTime, l.Title)
 
 			if l.LessonType != "" {
@@ -83,9 +81,7 @@ func SplitForTelegram(text string) []string {
 	var b strings.Builder
 
 	for _, line := range lines {
-		// +1 за возможный перенос строки
 		if b.Len()+len(line)+1 > telegramMaxLen {
-			// текущий буфер заполняем и начинаем новый
 			res = append(res, b.String())
 			b.Reset()
 		}
@@ -101,4 +97,17 @@ func SplitForTelegram(text string) []string {
 	}
 
 	return res
+}
+
+func FormatHomeworks(list []domain.HWBrief) string {
+	if len(list) == 0 {
+		return "Домашек нет"
+	}
+
+	var b strings.Builder
+	for _, h := range list {
+		fmt.Fprintf(&b, "%s: %s\n", h.Subject, h.HomeworkText)
+	}
+
+	return strings.TrimSpace(b.String())
 }

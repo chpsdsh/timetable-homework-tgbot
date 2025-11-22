@@ -15,6 +15,7 @@ const (
 	BtnChangeHW           = "Редактировать домашнее задание"
 	BtnConfReminder       = "Настроить напоминание о домашнем задание"
 	BtnDeleteNotification = "Удалить напоминание о домашних заданиях"
+	BtnWatchHomeworks     = "Посмотреть домашние задания"
 	BtnLeave              = "Отсоедениться от группы"
 	BtnGroup              = "Группы"
 	BtnTeacher            = "Преподаватели"
@@ -41,7 +42,10 @@ func KBMember() tgbotapi.ReplyKeyboardMarkup {
 			tgbotapi.NewKeyboardButton(BtnPinHW),
 		),
 		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnWatchHomeworks),
 			tgbotapi.NewKeyboardButton(BtnChangeHW),
+		),
+		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnConfReminder),
 			tgbotapi.NewKeyboardButton(BtnDeleteNotification),
 		),

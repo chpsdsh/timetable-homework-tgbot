@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"strings"
 	"timetable-homework-tgbot/internal/infrastracture/controllers"
+	"timetable-homework-tgbot/internal/infrastracture/formatter"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -85,13 +87,13 @@ func (h *HWHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 
 func (h *HWHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
-	days, err := h.hw.DaysWithLessons(ctx, userID)
-	if err != nil || len(days) == 0 {
-		_ = h.bot.Send(chatID, "Нет доступных дней.", telegram.KBMember())
+	hw, err := h.hw.ListForLastWeek(ctx, userID)
+	if err != nil {
+		h.bot.State.Del(chatID)
 		return
 	}
-	h.bot.State.Set(chatID, telegram.StateWaitHWEditDay)
-	_ = h.bot.Send(chatID, "Выбери день для редактирования ДЗ:", telegram.KBDays(days))
+	h.bot.State.Set(chatID, telegram.StateWaitHWTable)
+	_ = h.bot.Send(chatID, "Выбери день для редактирования ДЗ:", telegram.KBHomeworks(hw))
 }
 
 func (h *HWHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
@@ -118,4 +120,28 @@ func (h *HWHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 	h.bot.State.Del(chatID)
 	h.bot.HWSessDel(chatID)
 	_ = h.bot.Send(chatID, "Домашнее задание обновлено ✅", telegram.KBMember())
+}
+
+func (h *HWHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+	hw, err := h.hw.ListForLastWeek(ctx, userID)
+	if err != nil {
+		h.bot.State.Del(chatID)
+		return
+	}
+	formHw := formatter.FormatHomeworks(hw)
+	h.bot.State.Del(chatID)
+	_ = h.bot.Send(chatID, "Список домашек: "+formHw, telegram.KBMember())
+}
+
+func (h *HWHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Update) {
+	chatID := u.Message.Chat.ID
+	s := h.bot.HWSessGet(chatID)
+	arr := strings.Split(strings.TrimSpace(u.Message.Text), ":")
+	s.LessonTitle = strings.TrimSpace(arr[0])
+	h.bot.HWSessSet(chatID, s)
+	hw := strings.TrimSpace(u.Message.Text)
+	log.Println(hw)
+	h.bot.State.Set(chatID, telegram.StateWaitHWTextEdit)
+	_ = h.bot.SendRemove(chatID, "Введи новый текст ДЗ:")
 }
