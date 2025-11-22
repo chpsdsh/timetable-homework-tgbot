@@ -25,6 +25,7 @@ const (
 	StateWaitRemindChooseHW   = "wait_remind_hw"
 	StateWaitRemindChooseDay  = "wait_remind_day"
 	StateWaitRemindChooseTime = "wait_remind_time"
+	StateWaitRemindChoose     = "wait_remind_choose"
 )
 
 type HwSession struct {

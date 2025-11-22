@@ -15,7 +15,8 @@ type NotificationRepo struct {
 type NotificationRepository interface {
 	AddNotification(ctx context.Context, userID int64, subject string, ts time.Time) error
 	GetPendingNotifications(ctx context.Context, now time.Time) ([]domain.Notification, error)
-	DeleteNotification(ctx context.Context, hwID, userID int64) error
+	DeleteNotification(ctx context.Context, userID int64, subject string, ts time.Time) error
+	GetUserNotifications(ctx context.Context, userID int64) ([]domain.Notification, error)
 }
 
 func (r *NotificationRepo) AddNotification(
@@ -61,7 +62,6 @@ ORDER BY ts
 			&n.UserID,
 			&n.Subject,
 			&n.Timestamp,
-			&n.Weekday,
 		); err != nil {
 			return nil, fmt.Errorf("GetPendingNotifications scan: %w", err)
 		}
@@ -75,28 +75,59 @@ ORDER BY ts
 	return res, nil
 }
 
-func (r *NotificationRepo) DeleteNotification(
+func (r *NotificationRepo) GetUserNotifications(
 	ctx context.Context,
-	hwID, userID int64,
-) error {
+	userID int64,
+) ([]domain.Notification, error) {
 	const q = `
-DELETE FROM notifications n
-WHERE n.user_id = $2
-  AND n.subject = (
-      SELECT h.subject
-      FROM homeworks h
-      WHERE h.id_hw = $1
-        AND h.id_user = $2
-  );
+SELECT user_id, subject, ts
+FROM notifications
+WHERE user_id = $1
+ORDER BY ts;
 `
 
-	res, err := r.DB.SQL.ExecContext(ctx, q, hwID, userID)
+	rows, err := r.DB.SQL.QueryContext(ctx, q, userID)
 	if err != nil {
-		return fmt.Errorf("DeleteNotification exec: %w", err)
+		return nil, fmt.Errorf("GetUserNotifications query: %w", err)
+	}
+	defer rows.Close()
+
+	var res []domain.Notification
+
+	for rows.Next() {
+		var n domain.Notification
+		if err := rows.Scan(
+			&n.UserID,
+			&n.Subject,
+			&n.Timestamp,
+		); err != nil {
+			return nil, fmt.Errorf("GetUserNotifications scan: %w", err)
+		}
+		res = append(res, n)
 	}
 
-	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
-		return fmt.Errorf("no notifications for hwID=%d userID=%d", hwID, userID)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetUserNotifications rows: %w", err)
+	}
+
+	return res, nil
+}
+
+func (r *NotificationRepo) DeleteNotification(
+	ctx context.Context,
+	userID int64,
+	subject string,
+	ts time.Time,
+) error {
+	const q = `
+DELETE FROM notifications
+WHERE user_id = $1
+  AND subject = $2
+  AND ts = $3;
+`
+	_, err := r.DB.SQL.ExecContext(ctx, q, userID, subject, ts)
+	if err != nil {
+		return fmt.Errorf("DeleteNotification exec: %w", err)
 	}
 
 	return nil

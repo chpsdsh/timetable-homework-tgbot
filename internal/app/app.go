@@ -75,9 +75,11 @@ func NewWithDeps(
 
 	// Напоминания
 	r.OnText(telegram.BtnConfReminder, ntH.Start)
+	r.OnText(telegram.BtnDeleteNotification, ntH.StartDeleteNotification)
 	r.OnState(telegram.StateWaitRemindChooseHW, ntH.WaitChooseHW)
 	r.OnState(telegram.StateWaitRemindChooseDay, ntH.WaitChooseDay)
 	r.OnState(telegram.StateWaitRemindChooseTime, ntH.WaitChooseTime)
+	r.OnState(telegram.StateWaitRemindChoose, ntH.WaitDeleteNotification)
 
 	// дефолт
 	r.Default(func(ctx context.Context, u tgbotapi.Update) {

@@ -10,16 +10,17 @@ import (
 )
 
 const (
-	BtnShowTimeTable = "Посмотреть расписание"
-	BtnPinHW         = "Прикрепить домашнее задание"
-	BtnChangeHW      = "Редактировать домашнее задание"
-	BtnConfReminder  = "Настроить напоминание о домашнем задание"
-	BtnLeave         = "Отсоедениться от группы"
-	BtnGroup         = "Группы"
-	BtnTeacher       = "Преподаватели"
-	BtnClassRoom     = "Аудитории"
-	BtnJoin          = "Присоединиться к группе"
-	BtnSkip          = "Не присоединяться к группе"
+	BtnShowTimeTable      = "Посмотреть расписание"
+	BtnPinHW              = "Прикрепить домашнее задание"
+	BtnChangeHW           = "Редактировать домашнее задание"
+	BtnConfReminder       = "Настроить напоминание о домашнем задание"
+	BtnDeleteNotification = "Удалить напоминание о домашних заданиях"
+	BtnLeave              = "Отсоедениться от группы"
+	BtnGroup              = "Группы"
+	BtnTeacher            = "Преподаватели"
+	BtnClassRoom          = "Аудитории"
+	BtnJoin               = "Присоединиться к группе"
+	BtnSkip               = "Не присоединяться к группе"
 )
 
 func KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
@@ -42,6 +43,7 @@ func KBMember() tgbotapi.ReplyKeyboardMarkup {
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnChangeHW),
 			tgbotapi.NewKeyboardButton(BtnConfReminder),
+			tgbotapi.NewKeyboardButton(BtnDeleteNotification),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnLeave),
@@ -105,6 +107,28 @@ func KBHomeworks(list []domain.HWBrief) tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
+func KBNotifications(list []domain.Notification) tgbotapi.ReplyKeyboardMarkup {
+	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
+
+	for _, n := range list {
+		label := fmt.Sprintf(
+			"%s — %s",
+			n.Subject,
+			n.Timestamp.Format("02.01.2006 15:04"),
+		)
+
+		rows = append(rows,
+			tgbotapi.NewKeyboardButtonRow(
+				tgbotapi.NewKeyboardButton(label),
+			),
+		)
+	}
+
+	kb := tgbotapi.NewReplyKeyboard(rows...)
+	kb.ResizeKeyboard = true
+	return kb
+}
+
 func KBWeekdays(today time.Time) tgbotapi.ReplyKeyboardMarkup {
 	const days = 8
 
@@ -124,16 +148,6 @@ func KBWeekdays(today time.Time) tgbotapi.ReplyKeyboardMarkup {
 	}
 
 	kb := tgbotapi.NewReplyKeyboard(rows...)
-	kb.ResizeKeyboard = true
-	return kb
-}
-
-func KBTimeSlots() tgbotapi.ReplyKeyboardMarkup {
-	s := []string{"08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "22:00"}
-	kb := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(s[0]), tgbotapi.NewKeyboardButton(s[1]), tgbotapi.NewKeyboardButton(s[2]), tgbotapi.NewKeyboardButton(s[3])),
-		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(s[4]), tgbotapi.NewKeyboardButton(s[5]), tgbotapi.NewKeyboardButton(s[6]), tgbotapi.NewKeyboardButton(s[7])),
-	)
 	kb.ResizeKeyboard = true
 	return kb
 }

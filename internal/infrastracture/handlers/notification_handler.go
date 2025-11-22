@@ -84,6 +84,32 @@ func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание поставлено: %s в %s ✅", s.Date, s.TimeHHMM), telegram.KBMember())
 }
 
+func (h *NotifyHandler) StartDeleteNotification(ctx context.Context, u tgbotapi.Update) {
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+
+	list, err := h.ctl.GetUserNotifications(ctx, userID)
+
+	if err != nil || len(list) == 0 {
+		_ = h.bot.Send(chatID, "За уведомлений не найдено.", telegram.KBMember())
+		return
+	}
+	h.bot.State.Set(chatID, telegram.StateWaitRemindChoose)
+	_ = h.bot.Send(chatID, "Выбери напоминание, для удаления:", telegram.KBNotifications(list))
+
+}
+
+func (h *NotifyHandler) WaitDeleteNotification(ctx context.Context, u tgbotapi.Update) {
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+	not := strings.TrimSpace(u.Message.Text)
+	log.Println(not)
+	if err := h.ctl.DeleteUserNotification(ctx, userID, not); err != nil {
+		_ = h.bot.Send(chatID, "Не удалось удалить напоминание.", telegram.KBMember())
+		h.bot.State.Del(chatID)
+	}
+	h.bot.State.Del(chatID)
+	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание удалено: %s ✅", not), telegram.KBMember())
+}
+
 func isHHMM(s string) bool {
 	if len(s) != 5 || s[2] != ':' {
 		return false
@@ -91,23 +117,4 @@ func isHHMM(s string) bool {
 	hh, err1 := strconv.Atoi(s[:2])
 	mm, err2 := strconv.Atoi(s[3:])
 	return err1 == nil && err2 == nil && hh >= 0 && hh < 24 && mm >= 0 && mm < 60
-}
-
-func ruWeekdayShort(wd time.Weekday) string {
-	switch wd {
-	case time.Monday:
-		return "Пн"
-	case time.Tuesday:
-		return "Вт"
-	case time.Wednesday:
-		return "Ср"
-	case time.Thursday:
-		return "Чт"
-	case time.Friday:
-		return "Пт"
-	case time.Saturday:
-		return "Сб"
-	default:
-		return "Вс"
-	}
 }
