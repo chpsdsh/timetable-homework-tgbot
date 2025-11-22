@@ -96,7 +96,7 @@ func KBLessons(list []domain.LessonBrief) tgbotapi.ReplyKeyboardMarkup {
 func KBHomeworks(list []domain.HWBrief) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
 	for _, h := range list {
-		label := fmt.Sprintf("%s (id:%s)", h.Title, h.ID)
+		label := fmt.Sprintf("%s : %s", h.Subject, h.HomeworkText)
 		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(label)))
 	}
 	kb := tgbotapi.NewReplyKeyboard(rows...)

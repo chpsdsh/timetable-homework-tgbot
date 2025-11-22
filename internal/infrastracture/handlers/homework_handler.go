@@ -75,7 +75,10 @@ func (h *HWHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 		h.bot.State.Del(chatID)
 		return
 	}
-	_ = h.hw.Pin(ctx, userID, s.Day, s.LessonID, text) // TODO: обработать err
+	if err := h.hw.Pin(ctx, userID, s.Day, s.LessonID, text); err != nil {
+		_ = h.bot.Send(chatID, "Не удалось прикрепить домашнее задание", telegram.KBMember())
+		return
+	}
 	h.bot.State.Del(chatID)
 	h.bot.HWSessDel(chatID)
 	_ = h.bot.Send(chatID, "Домашнее задание сохранено ✅", telegram.KBMember())
@@ -106,7 +109,10 @@ func (h *HWHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 		h.bot.State.Del(chatID)
 		return
 	}
-	_ = h.hw.Update(ctx, userID, s.LessonID, newText) // TODO: обработать err
+	if err := h.hw.Update(ctx, userID, s.LessonID, newText); err != nil {
+		_ = h.bot.Send(chatID, "Не удалось обновить домашнее задание", telegram.KBMember())
+		return
+	}
 	h.bot.State.Del(chatID)
 	h.bot.HWSessDel(chatID)
 	_ = h.bot.Send(chatID, "Домашнее задание обновлено ✅", telegram.KBMember())

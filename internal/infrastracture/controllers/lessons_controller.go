@@ -2,11 +2,14 @@ package controllers
 
 import (
 	"context"
+	"timetable-homework-tgbot/internal/infrastracture/formatter"
 	"timetable-homework-tgbot/internal/repositories"
 )
 
 type LessonsController interface {
 	GetTimetableGroup(ctx context.Context, group string) string
+	GetTimetableTeacher(ctx context.Context, teacherFio string) string
+	GetTimetableRoom(ctx context.Context, room string) string
 }
 
 type lessonsController struct {
@@ -22,5 +25,24 @@ func (l *lessonsController) GetTimetableGroup(ctx context.Context, group string)
 	if err != nil {
 		return "not valid group"
 	}
+	timetable := formatter.FormatGroupTimetable(lessons)
+	return timetable
+}
 
+func (l *lessonsController) GetTimetableTeacher(ctx context.Context, teacherFio string) string {
+	lessons, err := l.lessonsRepo.GetLessonsTeacher(ctx, teacherFio)
+	if err != nil {
+		return "not valid group"
+	}
+	timetable := formatter.FormatTeacherTimetable(lessons)
+	return timetable
+}
+
+func (l *lessonsController) GetTimetableRoom(ctx context.Context, room string) string {
+	lessons, err := l.lessonsRepo.GetLessonsRoom(ctx, room)
+	if err != nil {
+		return "not valid room"
+	}
+	timetable := formatter.FormatRoomTimetable(lessons)
+	return timetable
 }

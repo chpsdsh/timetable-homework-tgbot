@@ -40,13 +40,13 @@ func (c *hw) DaysWithLessons(ctx context.Context, userID int64) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-	//TODO: переписать
-	//lessons, err := c.lessonsRepo.GetLessonsGroup(ctx, group)
+
+	days, err := c.lessonsRepo.GetDaysWithLessonsByGroup(ctx, group)
 	if err != nil {
 		return nil, err
 	}
 
-	return lessons, nil
+	return days, nil
 }
 
 func (c *hw) LessonsByDay(ctx context.Context, userID int64, day string) ([]domain.LessonBrief, error) {

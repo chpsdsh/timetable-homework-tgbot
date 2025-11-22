@@ -27,9 +27,10 @@ func NewWithDeps(
 ) (*App, error) {
 
 	// Контроллеры — ФЕЙКИ с TODO(DB)
-	authCtl := controllers.NewAuthFake("Europe/Bucharest")
+	authCtl := controllers.NewAuthController(userRepo, lessonRepo)
 	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
 	notifCtl := controllers.NewNotificationFake(authCtl)
+	lessonCtl := controllers.NewLessonController(lessonRepo)
 
 	// Telegram
 	state := telegram.NewMemState()
@@ -37,7 +38,7 @@ func NewWithDeps(
 
 	// Хендлеры
 	cmdH := handlers.NewCommandHandler(authCtl, bot)
-	ttH := handlers.NewTimetableHandler(bot)
+	ttH := handlers.NewTimetableHandler(bot, lessonCtl)
 	hwH := handlers.NewHWHandler(hwCtl, bot)
 	ntH := handlers.NewNotifyHandler(hwCtl, notifCtl, bot)
 

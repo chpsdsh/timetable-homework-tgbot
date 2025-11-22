@@ -19,17 +19,13 @@ var (
 	ErrGroupNotExist = errors.New("group does not exist")
 )
 
-// ФАЛЬСИФИЦИРОВАННО: in-memory состояние вместо БД.
 type auth struct {
 	timeout    time.Duration
 	userRepo   repositories.UsersRepository
 	lessonRepo repositories.LessonsRepository
 }
 
-func NewAuthFake(defaultTZ string, userRepo repositories.UsersRepository, lessonRepo repositories.LessonsRepository) AuthController {
-	if defaultTZ == "" {
-		defaultTZ = "Europe/Bucharest"
-	}
+func NewAuthController(userRepo repositories.UsersRepository, lessonRepo repositories.LessonsRepository) AuthController {
 	return &auth{
 		timeout:    5 * time.Second,
 		userRepo:   userRepo,
@@ -54,12 +50,10 @@ func (a *auth) JoinGroup(ctx context.Context, userID int64, group string) error 
 		return ErrGroupEmpty
 	}
 
-	//проверка существования группы
 	if _, err := a.lessonRepo.GetLessonsGroup(ctx, group); err != nil {
 		return ErrGroupNotExist
 	}
 
-	//добавление группы для юзера
 	if err := a.userRepo.SetGroup(ctx, userID, group); err != nil {
 		return err
 	}

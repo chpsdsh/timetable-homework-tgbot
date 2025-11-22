@@ -14,7 +14,9 @@ type TimetableHandler struct {
 	lessonsController controllers.LessonsController
 }
 
-func NewTimetableHandler(bot *telegram.Bot) *TimetableHandler { return &TimetableHandler{bot: bot} }
+func NewTimetableHandler(bot *telegram.Bot, lessonCtl controllers.LessonsController) *TimetableHandler {
+	return &TimetableHandler{bot: bot, lessonsController: lessonCtl}
+}
 
 func (h *TimetableHandler) ShowMenu(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
@@ -31,7 +33,7 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
 	group := strings.TrimSpace(m.Text)
-	// TODO(DB): найти расписание группы и красиво отдать
+
 	timetable := h.lessonsController.GetTimetableGroup(ctx, group)
 
 	h.bot.State.Del(chatID)
@@ -48,9 +50,11 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
 	teacher := strings.TrimSpace(m.Text)
-	// TODO(DB): найти расписание преподавателя
+
+	timetable := h.lessonsController.GetTimetableTeacher(ctx, teacher)
+
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание преподавателя: "+teacher, telegram.KBMember())
+	_ = h.bot.Send(chatID, "Расписание преподавателя: "+timetable, telegram.KBMember())
 }
 
 func (h *TimetableHandler) AskRoom(ctx context.Context, u tgbotapi.Update) {
@@ -63,7 +67,9 @@ func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
 	room := strings.TrimSpace(m.Text)
-	// TODO(DB): найти расписание аудитории
+
+	timetable := h.lessonsController.GetTimetableRoom(ctx, room)
+
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание аудитории: "+room, telegram.KBMember())
+	_ = h.bot.Send(chatID, "Расписание аудитории: "+timetable, telegram.KBMember())
 }

@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"timetable-homework-tgbot/internal/domain"
 	"timetable-homework-tgbot/internal/infrastracture/database"
 )
@@ -20,7 +19,7 @@ type HomeworkRepository interface {
 
 func (r *HomeworkRepo) Save(
 	ctx context.Context,
-	userID int64, // tg_id
+	userID int64,
 	lessonID, text string,
 ) error {
 	const q = `
@@ -64,7 +63,7 @@ func (r *HomeworkRepo) ListForLastWeek(
 ) ([]domain.HWBrief, error) {
 
 	const q = `
-SELECT h.id_hw, h.subject
+SELECT h.subject, h.homework_text
 FROM homeworks h
 WHERE h.id_user = $1;
 `
@@ -78,16 +77,16 @@ WHERE h.id_user = $1;
 	var res []domain.HWBrief
 
 	for rows.Next() {
-		var id int64
-		var title string
+		var subj string
+		var text string
 
-		if err := rows.Scan(&id, &title); err != nil {
+		if err := rows.Scan(&subj, &text); err != nil {
 			return nil, fmt.Errorf("ListForLastWeek scan: %w", err)
 		}
 
 		res = append(res, domain.HWBrief{
-			ID:    strconv.FormatInt(id, 10),
-			Title: title,
+			Subject:      subj,
+			HomeworkText: text,
 		})
 	}
 

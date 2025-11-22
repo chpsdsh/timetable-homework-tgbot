@@ -58,29 +58,43 @@ CREATE INDEX IF NOT EXISTS idx_users_group ON users("group");
 
 -- Домашки
 CREATE TABLE IF NOT EXISTS homeworks (
-  id_hw         BIGSERIAL PRIMARY KEY,
-  id_user       BIGINT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
-  subject       TEXT NOT NULL,
-  homework_text TEXT NOT NULL,
-  status        TEXT NOT NULL DEFAULT 'new'
+  id_user       BIGINT NOT NULL,
+  subject       TEXT  NOT NULL,
+  homework_text TEXT  NOT NULL,
+  status        TEXT  NOT NULL DEFAULT 'new',
+
+  CONSTRAINT fk_homeworks_user
+    FOREIGN KEY (id_user) REFERENCES users(tg_id) ON DELETE CASCADE,
+
+  -- один пользователь — одна домашка на один subject
+  CONSTRAINT pk_homeworks PRIMARY KEY (id_user, subject)
 );
 
-CREATE INDEX IF NOT EXISTS idx_hw_user ON homeworks(id_user);
+CREATE INDEX IF NOT EXISTS idx_hw_user   ON homeworks(id_user);
 CREATE INDEX IF NOT EXISTS idx_hw_status ON homeworks(status);
 
 -- Уведомления по домашкам
 CREATE TABLE IF NOT EXISTS notifications (
   id       BIGSERIAL PRIMARY KEY,
-  id_hw    BIGINT NOT NULL REFERENCES homeworks(id_hw) ON DELETE CASCADE,
-  user_id  BIGINT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
+
+  user_id  BIGINT NOT NULL,
+  subject  TEXT   NOT NULL,
+
   ts       TIMESTAMPTZ NOT NULL,
   weekday  TEXT NOT NULL CHECK (weekday IN
             ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
-  status   TEXT NOT NULL DEFAULT 'pending'
+  status   TEXT NOT NULL DEFAULT 'pending',
+
+  CONSTRAINT fk_notifications_user
+    FOREIGN KEY (user_id) REFERENCES users(tg_id) ON DELETE CASCADE,
+
+  CONSTRAINT fk_notifications_hw
+    FOREIGN KEY (user_id, subject)
+      REFERENCES homeworks(id_user, subject) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_notif_user_ts ON notifications(user_id, ts);
-CREATE INDEX IF NOT EXISTS idx_notif_status ON notifications(status);
+CREATE INDEX IF NOT EXISTS idx_notif_status  ON notifications(status);
 
 -- Расписание групп
 CREATE TABLE IF NOT EXISTS group_schedule (
