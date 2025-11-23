@@ -2,60 +2,100 @@ package controllers
 
 import (
 	"context"
-	"sync"
+	"fmt"
+	"strings"
 	"time"
+	"timetable-homework-tgbot/internal/domain"
+	"timetable-homework-tgbot/internal/repositories"
 )
 
 type NotificationController interface {
-	SetWeeklyReminder(ctx context.Context, userID int64, homeworkID string, weekday time.Weekday, hhmm string) error
+	SetReminder(ctx context.Context, userID int64, subject, weekday, hhmm string) error
+	GetUserNotifications(ctx context.Context, userID int64) ([]domain.Notification, error)
+	GetPendingNotifications(ctx context.Context) ([]domain.Notification, error)
+	DeleteUserNotification(ctx context.Context, userID int64, notification string) error
+	DeleteUserNotificationWithTs(ctx context.Context, userID int64, subject string, ts time.Time) error
 }
 
-// ФАЛЬСИФИЦИРОВАННО: in-memory.
-type reminder struct {
-	UserID    int64
-	HWID      string
-	Weekday   time.Weekday
-	HHMM      string
-	NextAtUTC time.Time
+type notificationController struct {
+	notificationRepo repositories.NotificationRepository
 }
 
-type notify struct {
-	mu   sync.Mutex
-	data []reminder
-
-	auth AuthController // нужен, чтобы взять TZ пользователя (как в реальной версии)
+func NewNotificationController(notificationRepo repositories.NotificationRepository) NotificationController {
+	return &notificationController{notificationRepo: notificationRepo}
 }
 
-func NewNotificationFake(auth AuthController) NotificationController {
-	return &notify{auth: auth}
-}
-
-func (n *notify) SetWeeklyReminder(ctx context.Context, userID int64, homeworkID string, weekday time.Weekday, hhmm string) error {
-	// TODO(DB): сохранить напоминание (weekly) в БД с расчётом next_at с учётом TZ пользователя
-	tz, err := n.auth.UserTZ(ctx, userID)
+func (n *notificationController) SetReminder(ctx context.Context, userID int64, subject, date, hhmm string) error {
+	t, err := parseNotificationTime(date, hhmm)
 	if err != nil {
 		return err
 	}
-	loc, _ := time.LoadLocation(tz)
-	now := time.Now().In(loc)
-	next := computeNextWeekly(weekday, hhmm, now).UTC()
-
-	n.mu.Lock()
-	n.data = append(n.data, reminder{
-		UserID: userID, HWID: homeworkID, Weekday: weekday, HHMM: hhmm, NextAtUTC: next,
-	})
-	n.mu.Unlock()
+	if err := n.notificationRepo.AddNotification(ctx, userID, subject, t); err != nil {
+		return err
+	}
 	return nil
 }
 
-// утилита (как у тебя)
-func computeNextWeekly(wd time.Weekday, hhmm string, from time.Time) time.Time {
-	hh := int((hhmm[0]-'0')*10 + (hhmm[1] - '0'))
-	mm := int((hhmm[3]-'0')*10 + (hhmm[4] - '0'))
-	delta := (int(wd) - int(from.Weekday()) + 7) % 7
-	cand := time.Date(from.Year(), from.Month(), from.Day(), hh, mm, 0, 0, from.Location()).AddDate(0, 0, delta)
-	if !cand.After(from) {
-		cand = cand.AddDate(0, 0, 7)
+func (n *notificationController) GetUserNotifications(ctx context.Context, userID int64) ([]domain.Notification, error) {
+	not, err := n.notificationRepo.GetUserNotifications(ctx, userID)
+	if err != nil {
+		return nil, err
 	}
-	return cand
+	return not, nil
+}
+
+func (n *notificationController) DeleteUserNotification(ctx context.Context, userID int64, notification string) error {
+	subject, t, err := parseNotificationLabel(notification)
+	if err != nil {
+		return err
+	}
+	if err := n.notificationRepo.DeleteNotification(ctx, userID, subject, t); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (n *notificationController) DeleteUserNotificationWithTs(ctx context.Context, userID int64, subject string, ts time.Time) error {
+	if err := n.notificationRepo.DeleteNotification(ctx, userID, subject, ts); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (n *notificationController) GetPendingNotifications(ctx context.Context) ([]domain.Notification, error) {
+	not, err := n.notificationRepo.GetPendingNotifications(ctx, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	return not, nil
+}
+
+func parseNotificationTime(dateStr, timeStr string) (time.Time, error) {
+	const layout = "02.01.2006 15:04"
+
+	combined := dateStr + " " + timeStr
+
+	t, err := time.ParseInLocation(layout, combined, time.Local)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return t, nil
+}
+
+func parseNotificationLabel(label string) (string, time.Time, error) {
+	parts := strings.SplitN(label, " — ", 2)
+	if len(parts) != 2 {
+		return "", time.Time{}, fmt.Errorf("invalid label format: %q", label)
+	}
+
+	subject := strings.TrimSpace(parts[0])
+	tsStr := strings.TrimSpace(parts[1])
+
+	const layout = "02.01.2006 15:04"
+	ts, err := time.ParseInLocation(layout, tsStr, time.Local)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("parse time %q: %w", tsStr, err)
+	}
+
+	return subject, ts, nil
 }

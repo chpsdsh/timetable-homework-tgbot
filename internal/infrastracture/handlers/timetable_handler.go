@@ -2,17 +2,23 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"strings"
+	"timetable-homework-tgbot/internal/infrastracture/controllers"
+	"timetable-homework-tgbot/internal/infrastracture/formatter"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TimetableHandler struct {
-	bot *telegram.Bot
+	bot               *telegram.Bot
+	lessonsController controllers.LessonsController
 }
 
-func NewTimetableHandler(bot *telegram.Bot) *TimetableHandler { return &TimetableHandler{bot: bot} }
+func NewTimetableHandler(bot *telegram.Bot, lessonCtl controllers.LessonsController) *TimetableHandler {
+	return &TimetableHandler{bot: bot, lessonsController: lessonCtl}
+}
 
 func (h *TimetableHandler) ShowMenu(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
@@ -28,10 +34,34 @@ func (h *TimetableHandler) AskGroup(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
+	userId := u.Message.From.ID
 	group := strings.TrimSpace(m.Text)
-	// TODO(DB): найти расписание группы и красиво отдать
+
+	timetable := h.lessonsController.GetTimetableGroup(ctx, group)
+
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание группы: "+group, telegram.KBMember())
+
+	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	if err != nil {
+		log.Println(err)
+		h.bot.State.Del(chatID)
+		return
+	}
+	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
+	if joined {
+		keyboardFunc = telegram.KBMember
+	} else {
+		keyboardFunc = telegram.KBGuest
+	}
+
+	parts := formatter.SplitForTelegram(timetable)
+
+	for _, part := range parts {
+		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
+			log.Println("send timetable part:", err)
+			break
+		}
+	}
 }
 
 func (h *TimetableHandler) AskTeacher(ctx context.Context, u tgbotapi.Update) {
@@ -43,10 +73,33 @@ func (h *TimetableHandler) AskTeacher(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
+	userId := u.Message.From.ID
 	teacher := strings.TrimSpace(m.Text)
-	// TODO(DB): найти расписание преподавателя
+
+	timetable := h.lessonsController.GetTimetableTeacher(ctx, teacher)
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание преподавателя: "+teacher, telegram.KBMember())
+
+	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	if err != nil {
+		log.Println(err)
+		h.bot.State.Del(chatID)
+		return
+	}
+	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
+	if joined {
+		keyboardFunc = telegram.KBMember
+	} else {
+		keyboardFunc = telegram.KBGuest
+	}
+
+	parts := formatter.SplitForTelegram(timetable)
+
+	for _, part := range parts {
+		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
+			log.Println("send timetable part:", err)
+			break
+		}
+	}
 }
 
 func (h *TimetableHandler) AskRoom(ctx context.Context, u tgbotapi.Update) {
@@ -58,8 +111,28 @@ func (h *TimetableHandler) AskRoom(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 	m := u.Message
 	chatID := m.Chat.ID
+	userId := u.Message.From.ID
 	room := strings.TrimSpace(m.Text)
-	// TODO(DB): найти расписание аудитории
+
+	timetable := h.lessonsController.GetTimetableRoom(ctx, room)
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Расписание аудитории: "+room, telegram.KBMember())
+	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	if err != nil {
+		log.Println(err)
+		h.bot.State.Del(chatID)
+		return
+	}
+	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
+	if joined {
+		keyboardFunc = telegram.KBMember
+	} else {
+		keyboardFunc = telegram.KBGuest
+	}
+	parts := formatter.SplitForTelegram(timetable)
+	for _, part := range parts {
+		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
+			log.Println("send timetable part:", err)
+			break
+		}
+	}
 }

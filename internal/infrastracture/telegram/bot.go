@@ -19,19 +19,26 @@ const (
 	StateWaitHWDay            = "wait_hw_day"
 	StateWaitHWLesson         = "wait_hw_lesson"
 	StateWaitHWText           = "wait_hw_text"
-	StateWaitHWEditDay        = "wait_edit_hw_day"
+	StateWaitConfirmDelete    = "wait_confirm_delete"
 	StateWaitHWEditLesson     = "wait_edit_hw_lesson"
 	StateWaitHWTextEdit       = "wait_edit_hw_text"
+	StateWaitHWTable          = "wait_hw_table"
+	StateWaitHWTableToDelete  = "wait_hw_table_to_delete"
 	StateWaitRemindChooseHW   = "wait_remind_hw"
 	StateWaitRemindChooseDay  = "wait_remind_day"
 	StateWaitRemindChooseTime = "wait_remind_time"
+	StateWaitRemindChoose     = "wait_remind_choose"
 )
 
-type HwSession struct{ Day, LessonID string }
+type HwSession struct {
+	Day         string
+	LessonTitle string
+}
+
 type RemindSession struct {
-	HomeworkID string
-	Weekday    time.Weekday
-	TimeHHMM   string
+	SubjectWithTask string
+	Date            string
+	TimeHHMM        string
 }
 
 type Bot struct {
@@ -74,7 +81,7 @@ func (b *Bot) Run(ctx context.Context) error {
 
 func (b *Bot) handleMessage(parent context.Context, upd tgbotapi.Update) {
 	m := upd.Message
-	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 
 	chatID := m.Chat.ID
@@ -116,7 +123,6 @@ func (b *Bot) SendRemove(chatID int64, text string) error {
 	return err
 }
 
-// hw session helpers
 func (b *Bot) HWSessSet(chatID int64, s HwSession) { b.hwMu.Lock(); b.hw[chatID] = s; b.hwMu.Unlock() }
 func (b *Bot) HWSessGet(chatID int64) HwSession {
 	b.hwMu.Lock()
@@ -125,7 +131,6 @@ func (b *Bot) HWSessGet(chatID int64) HwSession {
 }
 func (b *Bot) HWSessDel(chatID int64) { b.hwMu.Lock(); delete(b.hw, chatID); b.hwMu.Unlock() }
 
-// reminder session helpers
 func (b *Bot) RemSessSet(chatID int64, s RemindSession) {
 	b.remMu.Lock()
 	b.rem[chatID] = s
@@ -138,15 +143,6 @@ func (b *Bot) RemSessGet(chatID int64) (RemindSession, bool) {
 	return s, ok
 }
 func (b *Bot) RemSessDel(chatID int64) { b.remMu.Lock(); delete(b.rem, chatID); b.remMu.Unlock() }
-
-// util
-func ExtractIDFromLabel(label string) (string, bool) {
-	i := strings.LastIndex(label, "(id:")
-	if i < 0 || !strings.HasSuffix(label, ")") {
-		return "", false
-	}
-	return strings.TrimSuffix(label[i+4:], ")"), true
-}
 
 var ErrTooManyRequests = fmt.Errorf("too many requests")
 

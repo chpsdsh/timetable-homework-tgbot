@@ -1,15 +1,18 @@
 package domain
 
-import "time"
-
 type LessonBrief struct {
-	ID    string
-	Title string
+	Title      string
+	LessonType string
+	Tutor      string
+	StartTime  string
+	Weekday    string
+	Room       string
+	Groups     string
+	Week       string
 }
 
 type HWBrief struct {
-	ID    string // ID записи ДЗ в БД
-	Title string // как показывать пользователю
+	Subject      string
+	HomeworkText string
+	Status       string
 }
-
-type Weekday = time.Weekday

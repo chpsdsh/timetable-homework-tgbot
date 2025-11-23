@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
-	"timetable-homework-tgbot/internal/domain"
 	"timetable-homework-tgbot/internal/infrastracture/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
@@ -31,52 +31,70 @@ func (h *NotifyHandler) Start(ctx context.Context, u tgbotapi.Update) {
 		return
 	}
 	h.bot.State.Set(chatID, telegram.StateWaitRemindChooseHW)
-	_ = h.bot.Send(chatID, "Выбери ДЗ, для которого поставить напоминание:", telegram.KBHomeworks(toDomain(list)))
+	_ = h.bot.Send(chatID, "Выбери ДЗ, для которого поставить напоминание:", telegram.KBHomeworks(list))
 }
 
 func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	id, ok := telegram.ExtractIDFromLabel(strings.TrimSpace(u.Message.Text))
-	if !ok {
-		_ = h.bot.Send(chatID, "Не понял, какую запись ДЗ выбрали.", telegram.KBMember())
+	userID := u.Message.From.ID
+	homework := strings.TrimSpace(u.Message.Text)
+	arg := strings.Split(homework, ":")
+
+	exist, err := h.hw.CheckExistence(ctx, userID, strings.TrimSpace(arg[0]))
+	if err != nil {
+		log.Println(err)
+		h.bot.HWSessDel(chatID)
+		h.bot.State.Del(chatID)
 		return
 	}
-	h.bot.RemSessSet(chatID, telegram.RemindSession{HomeworkID: id})
+	if !exist {
+		log.Println(homework)
+		h.bot.State.Del(chatID)
+		h.bot.HWSessDel(chatID)
+		_ = h.bot.Send(chatID, "Некорректное домашнее задание", telegram.KBMember())
+		return
+	}
+
+	h.bot.RemSessSet(chatID, telegram.RemindSession{SubjectWithTask: homework})
 	h.bot.State.Set(chatID, telegram.StateWaitRemindChooseDay)
-	_ = h.bot.Send(chatID, "В какой день недели напоминать?", telegram.KBWeekdays())
+	_ = h.bot.Send(chatID, "В какой день напоминать?", telegram.KBWeekdays(time.Now()))
 }
 
 func (h *NotifyHandler) WaitChooseDay(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	wd, ok := parseWeekday(strings.TrimSpace(u.Message.Text))
-	if !ok {
-		_ = h.bot.Send(chatID, "Выбери день из клавиатуры (Пн..Вс).", telegram.KBWeekdays())
+	date := strings.TrimSpace(u.Message.Text)
+	if !isDate(date) {
+		h.bot.State.Del(chatID)
+		_ = h.bot.SendRemove(chatID, "Формат времени HH:MM.")
 		return
 	}
+
 	s, _ := h.bot.RemSessGet(chatID)
-	s.Weekday = wd
+	s.Date = date
 	h.bot.RemSessSet(chatID, s)
 	h.bot.State.Set(chatID, telegram.StateWaitRemindChooseTime)
-	_ = h.bot.Send(chatID, "Во сколько напоминать?", telegram.KBTimeSlots())
+	_ = h.bot.SendRemove(chatID, "Во сколько напоминать(HH:MM)?")
 }
 
 func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	tStr := strings.TrimSpace(u.Message.Text)
 	if !isHHMM(tStr) {
-		_ = h.bot.Send(chatID, "Формат времени HH:MM.", telegram.KBTimeSlots())
+		_ = h.bot.SendRemove(chatID, "Формат времени HH:MM.")
 		return
 	}
 
 	s, ok := h.bot.RemSessGet(chatID)
-	if !ok || s.HomeworkID == "" {
+	if !ok || s.SubjectWithTask == "" {
 		_ = h.bot.Send(chatID, "Сессия потерялась. Начни заново.", telegram.KBMember())
 		h.bot.State.Del(chatID)
 		return
 	}
 	s.TimeHHMM = tStr
 
-	if err := h.ctl.SetWeeklyReminder(ctx, userID, s.HomeworkID, s.Weekday, s.TimeHHMM); err != nil {
+	log.Println("subject:", s.SubjectWithTask)
+	if err := h.ctl.SetReminder(ctx, userID, s.SubjectWithTask, s.Date, s.TimeHHMM); err != nil {
+		log.Println(err.Error())
 		_ = h.bot.Send(chatID, "Не удалось создать напоминание.", telegram.KBMember())
 		h.bot.RemSessDel(chatID)
 		h.bot.State.Del(chatID)
@@ -85,30 +103,80 @@ func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 
 	h.bot.RemSessDel(chatID)
 	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание поставлено: %s в %s ✅", ruWeekdayShort(s.Weekday), s.TimeHHMM), telegram.KBMember())
+	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание поставлено: %s в %s ✅", s.Date, s.TimeHHMM), telegram.KBMember())
 }
 
-func toDomain(in []domain.HWBrief) []domain.HWBrief { return in } // заглушка, если тип совпадает
+func (h *NotifyHandler) StartDeleteNotification(ctx context.Context, u tgbotapi.Update) {
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 
-func parseWeekday(s string) (time.Weekday, bool) {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "пн":
-		return time.Monday, true
-	case "вт":
-		return time.Tuesday, true
-	case "ср":
-		return time.Wednesday, true
-	case "чт":
-		return time.Thursday, true
-	case "пт":
-		return time.Friday, true
-	case "сб":
-		return time.Saturday, true
-	case "вс":
-		return time.Sunday, true
-	default:
-		return time.Sunday, false
+	list, err := h.ctl.GetUserNotifications(ctx, userID)
+
+	if err != nil || len(list) == 0 {
+		h.bot.State.Del(chatID)
+		_ = h.bot.Send(chatID, "Напоминаний не найдено.", telegram.KBMember())
+		return
 	}
+	h.bot.State.Set(chatID, telegram.StateWaitRemindChoose)
+	_ = h.bot.Send(chatID, "Выбери напоминание, для удаления:", telegram.KBNotifications(list))
+
+}
+
+func (h *NotifyHandler) WaitDeleteNotification(ctx context.Context, u tgbotapi.Update) {
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+	not := strings.TrimSpace(u.Message.Text)
+	log.Println(not)
+	if err := h.ctl.DeleteUserNotification(ctx, userID, not); err != nil {
+		_ = h.bot.Send(chatID, "Не удалось удалить напоминание.", telegram.KBMember())
+		h.bot.State.Del(chatID)
+		return
+	}
+	h.bot.State.Del(chatID)
+	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание удалено: %s ✅", not), telegram.KBMember())
+}
+
+func (h *NotifyHandler) StartNotificationWorker(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+		log.Println("ticker Started")
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				log.Println("tick")
+				h.checkPendingNotifications(ctx)
+			}
+		}
+	}()
+}
+
+func (h *NotifyHandler) checkPendingNotifications(ctx context.Context) {
+	pending, err := h.ctl.GetPendingNotifications(ctx)
+	log.Println(pending)
+	if err != nil {
+		log.Println("GetPendingNotifications:", err)
+		return
+	}
+
+	for _, n := range pending {
+
+		text := fmt.Sprintf(
+			"Напоминание по предмету %s на %s",
+			n.Subject,
+			n.Timestamp.Format("02.01.2006 15:04"),
+		)
+		log.Println(text)
+		if err := h.bot.Send(n.UserID, text, telegram.KBMember()); err != nil {
+			log.Println("send notif:", err)
+			continue
+		}
+
+		if err := h.ctl.DeleteUserNotificationWithTs(ctx, n.UserID, n.Subject, n.Timestamp); err != nil {
+			log.Println("delete notif:", err)
+		}
+	}
+
 }
 
 func isHHMM(s string) bool {
@@ -120,21 +188,13 @@ func isHHMM(s string) bool {
 	return err1 == nil && err2 == nil && hh >= 0 && hh < 24 && mm >= 0 && mm < 60
 }
 
-func ruWeekdayShort(wd time.Weekday) string {
-	switch wd {
-	case time.Monday:
-		return "Пн"
-	case time.Tuesday:
-		return "Вт"
-	case time.Wednesday:
-		return "Ср"
-	case time.Thursday:
-		return "Чт"
-	case time.Friday:
-		return "Пт"
-	case time.Saturday:
-		return "Сб"
-	default:
-		return "Вс"
+func isDate(dateStr string) bool {
+	const layout = "02.01.2006"
+
+	_, err := time.Parse(layout, dateStr)
+	if err != nil {
+		return false
 	}
+
+	return true
 }

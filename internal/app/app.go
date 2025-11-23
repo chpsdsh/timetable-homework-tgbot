@@ -3,31 +3,35 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"timetable-homework-tgbot/internal/infrastracture/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/handlers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
-	"timetable-homework-tgbot/internal/repositories" // оставляем импорт для сигнатуры
+	"timetable-homework-tgbot/internal/repositories"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type App struct{ bot *telegram.Bot }
+type App struct {
+	bot *telegram.Bot
+}
 
-// NewWithDeps — сигнатуру не меняем, но deps сейчас игнорим (всё фейково).
 func NewWithDeps(
 	api *tgbotapi.BotAPI,
-	_ repositories.UsersRepository,
-	_ repositories.LessonsRepository,
-	_ repositories.HomeworkRepository,
-	_ repositories.NotificationRepository,
+	userRepo repositories.UsersRepository,
+	lessonRepo repositories.LessonsRepository,
+	homeworkRepo repositories.HomeworkRepository,
+	notificationRepo repositories.NotificationRepository,
+	ctx context.Context,
 ) (*App, error) {
 
-	// Контроллеры — ФЕЙКИ с TODO(DB)
-	authCtl := controllers.NewAuthFake("Europe/Bucharest")
-	hwCtl := controllers.NewHomeworkFake()
-	notifCtl := controllers.NewNotificationFake(authCtl)
+	// Контроллеры — ФЕЙКИ с
+	authCtl := controllers.NewAuthController(userRepo, lessonRepo)
+	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
+	notifCtl := controllers.NewNotificationController(notificationRepo)
+	lessonCtl := controllers.NewLessonController(lessonRepo, userRepo)
 
 	// Telegram
 	state := telegram.NewMemState()
@@ -35,7 +39,7 @@ func NewWithDeps(
 
 	// Хендлеры
 	cmdH := handlers.NewCommandHandler(authCtl, bot)
-	ttH := handlers.NewTimetableHandler(bot)
+	ttH := handlers.NewTimetableHandler(bot, lessonCtl)
 	hwH := handlers.NewHWHandler(hwCtl, bot)
 	ntH := handlers.NewNotifyHandler(hwCtl, notifCtl, bot)
 
@@ -66,16 +70,27 @@ func NewWithDeps(
 	r.OnState(telegram.StateWaitHWText, hwH.WaitText)
 
 	r.OnText(telegram.BtnChangeHW, hwH.EditStart)
-	r.OnState(telegram.StateWaitHWEditDay, hwH.WaitDay)
-	r.OnState(telegram.StateWaitHWEditLesson, hwH.WaitLesson)
+	r.OnState(telegram.StateWaitHWTable, hwH.WaitHomeWorkTable)
 	r.OnState(telegram.StateWaitHWTextEdit, hwH.WaitTextEdit)
+
+	r.OnText(telegram.BtnWatchHomeworks, hwH.ListHomeworks)
+
+	r.OnText(telegram.BtnDeleteHomeworks, hwH.ListHomeworks)
+	r.OnState(telegram.StateWaitHWTableToDelete, hwH.WaitHomeWorkTable)
+	r.OnState(telegram.StateWaitConfirmDelete, hwH.WaitConfirmDelete)
+
+	r.OnText(telegram.BtnUpdateHomeworkStatus, hwH.ListHomeworks)
+	r.OnState(telegram.StateWaitHomeworkUpdateChoose, hwH.WaitHomeWorkTable)
 
 	// Напоминания
 	r.OnText(telegram.BtnConfReminder, ntH.Start)
+	r.OnText(telegram.BtnDeleteNotification, ntH.StartDeleteNotification)
 	r.OnState(telegram.StateWaitRemindChooseHW, ntH.WaitChooseHW)
 	r.OnState(telegram.StateWaitRemindChooseDay, ntH.WaitChooseDay)
 	r.OnState(telegram.StateWaitRemindChooseTime, ntH.WaitChooseTime)
+	r.OnState(telegram.StateWaitRemindChoose, ntH.WaitDeleteNotification)
 
+	ntH.StartNotificationWorker(ctx)
 	// дефолт
 	r.Default(func(ctx context.Context, u tgbotapi.Update) {
 		_ = bot.Send(u.Message.Chat.ID, "Нажми кнопку меню или /start", telegram.KBMember())
@@ -89,6 +104,7 @@ func NewFromEnv(
 	lessons repositories.LessonsRepository,
 	hw repositories.HomeworkRepository,
 	notifs repositories.NotificationRepository,
+	ctx context.Context,
 ) (*App, error) {
 	token := os.Getenv("TELEGRAM_BOT_TOKEN")
 	if token == "" {
@@ -96,9 +112,10 @@ func NewFromEnv(
 	}
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
+		log.Println("Error creating telegram bot:", err)
 		return nil, err
 	}
-	return NewWithDeps(api, users, lessons, hw, notifs)
+	return NewWithDeps(api, users, lessons, hw, notifs, ctx)
 }
 
 func (a *App) Run(ctx context.Context) error { return a.bot.Run(ctx) }

@@ -56,21 +56,17 @@ func (h *CommandHandler) WaitUserGroup(ctx context.Context, u tgbotapi.Update) {
 		return
 	}
 
-	// TODO(DB): реальная валидация/присоединение через БД
 	if err := h.auth.JoinGroup(ctx, userID, group); err != nil {
-		// типовые ответы для фейка/БО: можно различать по ошибкам, если хочешь
 		log.Printf("JoinGroup failed: %v", err)
-		_ = h.bot.Send(chatID, "Не удалось присоединиться. Проверь номер группы и попробуй ещё раз.", telegram.KBMember())
-		// state НЕ сбрасываем — пусть пользователь введёт снова
+		h.bot.State.Del(chatID)
+		_ = h.bot.Send(chatID, "Не удалось присоединиться. Проверь номер группы и попробуй ещё раз.", telegram.KBGuest())
 		return
 	}
 
-	// успех
 	h.bot.State.Del(chatID)
 	_ = h.bot.Send(chatID, "Группа сохранена: "+group, telegram.KBMember())
 }
 
-// НОВОЕ: обработка «Не присоединяться к группе»
 func (h *CommandHandler) Skip(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	h.bot.State.Del(chatID)
