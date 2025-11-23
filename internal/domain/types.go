@@ -14,4 +14,5 @@ type LessonBrief struct {
 type HWBrief struct {
 	Subject      string
 	HomeworkText string
+	Status       string
 }

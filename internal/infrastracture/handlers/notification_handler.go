@@ -36,7 +36,24 @@ func (h *NotifyHandler) Start(ctx context.Context, u tgbotapi.Update) {
 
 func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
+	userID := u.Message.From.ID
 	homework := strings.TrimSpace(u.Message.Text)
+	arg := strings.Split(homework, ":")
+
+	exist, err := h.hw.CheckExistence(ctx, userID, strings.TrimSpace(arg[0]))
+	if err != nil {
+		log.Println(err)
+		h.bot.HWSessDel(chatID)
+		h.bot.State.Del(chatID)
+		return
+	}
+	if !exist {
+		log.Println(homework)
+		h.bot.State.Del(chatID)
+		h.bot.HWSessDel(chatID)
+		_ = h.bot.Send(chatID, "Некорректное домашнее задание", telegram.KBMember())
+		return
+	}
 
 	h.bot.RemSessSet(chatID, telegram.RemindSession{SubjectWithTask: homework})
 	h.bot.State.Set(chatID, telegram.StateWaitRemindChooseDay)
@@ -46,6 +63,11 @@ func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
 func (h *NotifyHandler) WaitChooseDay(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	date := strings.TrimSpace(u.Message.Text)
+	if !isDate(date) {
+		h.bot.State.Del(chatID)
+		_ = h.bot.SendRemove(chatID, "Формат времени HH:MM.")
+		return
+	}
 
 	s, _ := h.bot.RemSessGet(chatID)
 	s.Date = date
@@ -90,6 +112,7 @@ func (h *NotifyHandler) StartDeleteNotification(ctx context.Context, u tgbotapi.
 	list, err := h.ctl.GetUserNotifications(ctx, userID)
 
 	if err != nil || len(list) == 0 {
+		h.bot.State.Del(chatID)
 		_ = h.bot.Send(chatID, "Напоминаний не найдено.", telegram.KBMember())
 		return
 	}
@@ -105,6 +128,7 @@ func (h *NotifyHandler) WaitDeleteNotification(ctx context.Context, u tgbotapi.U
 	if err := h.ctl.DeleteUserNotification(ctx, userID, not); err != nil {
 		_ = h.bot.Send(chatID, "Не удалось удалить напоминание.", telegram.KBMember())
 		h.bot.State.Del(chatID)
+		return
 	}
 	h.bot.State.Del(chatID)
 	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание удалено: %s ✅", not), telegram.KBMember())
@@ -162,4 +186,15 @@ func isHHMM(s string) bool {
 	hh, err1 := strconv.Atoi(s[:2])
 	mm, err2 := strconv.Atoi(s[3:])
 	return err1 == nil && err2 == nil && hh >= 0 && hh < 24 && mm >= 0 && mm < 60
+}
+
+func isDate(dateStr string) bool {
+	const layout = "02.01.2006"
+
+	_, err := time.Parse(layout, dateStr)
+	if err != nil {
+		return false
+	}
+
+	return true
 }

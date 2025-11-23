@@ -13,9 +13,12 @@ import (
 type HomeworkController interface {
 	DaysWithLessons(ctx context.Context, userID int64) ([]string, error)
 	LessonsByDay(ctx context.Context, userID int64, day string) ([]domain.LessonBrief, error)
-	Pin(ctx context.Context, userID int64, day string, lessonID, text string) error
-	Update(ctx context.Context, userID int64, lessonID, newText string) error
+	Pin(ctx context.Context, userID int64, day string, subject, text string) error
+	Update(ctx context.Context, userID int64, subject, newText string) error
+	UpdateStatus(ctx context.Context, userID int64, subject string) error
+	DeleteHomework(ctx context.Context, userID int64, subject string) error
 	ListForLastWeek(ctx context.Context, userID int64) ([]domain.HWBrief, error)
+	CheckExistence(ctx context.Context, userID int64, subject string) (bool, error)
 }
 
 type hw struct {
@@ -65,15 +68,29 @@ func (c *hw) LessonsByDay(ctx context.Context, userID int64, day string) ([]doma
 	return lessons, nil
 }
 
-func (c *hw) Pin(ctx context.Context, userID int64, day string, lessonID, text string) error {
-	if err := c.homeworkRepo.Save(ctx, userID, fmt.Sprintf("%s(%s)", lessonID, day), fmt.Sprintf("• %s", text)); err != nil {
+func (c *hw) Pin(ctx context.Context, userID int64, day string, subject, text string) error {
+	if err := c.homeworkRepo.Save(ctx, userID, fmt.Sprintf("%s(%s)", subject, day), fmt.Sprintf("• %s", text)); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *hw) Update(ctx context.Context, userID int64, lessonID, newText string) error {
-	if err := c.homeworkRepo.Update(ctx, userID, lessonID, newText); err != nil {
+func (c *hw) Update(ctx context.Context, userID int64, subject, newText string) error {
+	if err := c.homeworkRepo.Update(ctx, userID, subject, newText); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *hw) UpdateStatus(ctx context.Context, userID int64, subject string) error {
+	if err := c.homeworkRepo.UpdateStatus(ctx, userID, subject); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *hw) DeleteHomework(ctx context.Context, userID int64, subject string) error {
+	if err := c.homeworkRepo.Delete(ctx, userID, subject); err != nil {
 		return err
 	}
 	return nil
@@ -85,4 +102,8 @@ func (c *hw) ListForLastWeek(ctx context.Context, userID int64) ([]domain.HWBrie
 		return []domain.HWBrief{}, err
 	}
 	return homework, nil
+}
+
+func (c *hw) CheckExistence(ctx context.Context, userID int64, subject string) (bool, error) {
+	return c.homeworkRepo.CheckExistence(ctx, userID, subject)
 }

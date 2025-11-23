@@ -75,6 +75,13 @@ func NewWithDeps(
 
 	r.OnText(telegram.BtnWatchHomeworks, hwH.ListHomeworks)
 
+	r.OnText(telegram.BtnDeleteHomeworks, hwH.ListHomeworks)
+	r.OnState(telegram.StateWaitHWTableToDelete, hwH.WaitHomeWorkTable)
+	r.OnState(telegram.StateWaitConfirmDelete, hwH.WaitConfirmDelete)
+
+	r.OnText(telegram.BtnUpdateHomeworkStatus, hwH.ListHomeworks)
+	r.OnState(telegram.StateWaitHomeworkUpdateChoose, hwH.WaitHomeWorkTable)
+
 	// Напоминания
 	r.OnText(telegram.BtnConfReminder, ntH.Start)
 	r.OnText(telegram.BtnDeleteNotification, ntH.StartDeleteNotification)

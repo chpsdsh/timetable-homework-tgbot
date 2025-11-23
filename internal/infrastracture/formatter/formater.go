@@ -106,7 +106,7 @@ func FormatHomeworks(list []domain.HWBrief) string {
 
 	var b strings.Builder
 	for _, h := range list {
-		fmt.Fprintf(&b, "%s: %s\n", h.Subject, h.HomeworkText)
+		fmt.Fprintf(&b, "%s: %s(%s)\n", h.Subject, h.HomeworkText, h.Status)
 	}
 
 	return strings.TrimSpace(b.String())

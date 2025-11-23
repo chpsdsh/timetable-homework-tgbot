@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS homeworks (
   id_user       BIGINT NOT NULL,
   subject       TEXT  NOT NULL,
   homework_text TEXT  NOT NULL,
+  status        TEXT  NOT NULL DEFAULT 'new',
 
   CONSTRAINT fk_homeworks_user
     FOREIGN KEY (id_user) REFERENCES users(tg_id) ON DELETE CASCADE,
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS homeworks (
   -- один пользователь — одна домашка на один subject
   CONSTRAINT pk_homeworks PRIMARY KEY (id_user, subject)
 );
+
 
 CREATE INDEX IF NOT EXISTS idx_hw_user   ON homeworks(id_user);
 

@@ -36,22 +36,21 @@ func (h *HWHandler) WaitDay(ctx context.Context, u tgbotapi.Update) {
 	day := strings.TrimSpace(u.Message.Text)
 	lessons, err := h.hw.LessonsByDay(ctx, userID, day)
 	if err != nil || len(lessons) == 0 {
+		h.bot.State.Del(chatID)
 		_ = h.bot.Send(chatID, "В этот день пар нет. Выбери другой.", telegram.KBMember())
 		return
 	}
 	h.bot.HWSessSet(chatID, telegram.HwSession{Day: day})
-	curr := h.bot.State.Get(chatID)
-	if strings.HasPrefix(curr, telegram.StateWaitHWEditDay) {
-		h.bot.State.Set(chatID, telegram.StateWaitHWEditLesson)
-	} else {
-		h.bot.State.Set(chatID, telegram.StateWaitHWLesson)
-	}
+
+	h.bot.State.Set(chatID, telegram.StateWaitHWLesson)
+
 	_ = h.bot.Send(chatID, "Выбери пару:", telegram.KBLessons(lessons))
 }
 
 func (h *HWHandler) WaitLesson(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	lesson := strings.TrimSpace(u.Message.Text)
+	args := strings.Split(strings.TrimSpace(u.Message.Text), "-")
+	lesson := strings.TrimSpace(args[0])
 
 	s := h.bot.HWSessGet(chatID)
 	s.LessonTitle = lesson
@@ -129,19 +128,81 @@ func (h *HWHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
 		h.bot.State.Del(chatID)
 		return
 	}
-	formHw := formatter.FormatHomeworks(hw)
-	h.bot.State.Del(chatID)
-	_ = h.bot.Send(chatID, "Список домашек: "+formHw, telegram.KBMember())
+	switch u.Message.Text {
+	case telegram.BtnWatchHomeworks:
+		formHw := formatter.FormatHomeworks(hw)
+		h.bot.State.Del(chatID)
+		_ = h.bot.Send(chatID, "Список домашек:\n "+formHw, telegram.KBMember())
+	case telegram.BtnDeleteHomeworks:
+		h.bot.State.Set(chatID, telegram.StateWaitHWTableToDelete)
+		_ = h.bot.Send(chatID, "Выбери домашку для удаления:\n ", telegram.KBHomeworks(hw))
+	case telegram.BtnUpdateHomeworkStatus:
+		h.bot.State.Set(chatID, telegram.StateWaitHomeworkUpdateChoose)
+		_ = h.bot.Send(chatID, "Выбери домашку для обновления статуса:\n ", telegram.KBHomeworks(hw))
+	}
 }
 
 func (h *HWHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
+	userID := u.Message.From.ID
 	s := h.bot.HWSessGet(chatID)
 	arr := strings.Split(strings.TrimSpace(u.Message.Text), ":")
 	s.LessonTitle = strings.TrimSpace(arr[0])
+	log.Println(s.LessonTitle)
+	exist, err := h.hw.CheckExistence(ctx, userID, s.LessonTitle)
+	if err != nil {
+		log.Println(err)
+		h.bot.HWSessDel(chatID)
+		h.bot.State.Del(chatID)
+		return
+	}
+	if !exist {
+		h.bot.State.Del(chatID)
+		h.bot.HWSessDel(chatID)
+		_ = h.bot.Send(chatID, "Некорректное домашнее задание", telegram.KBMember())
+		return
+	}
+
 	h.bot.HWSessSet(chatID, s)
-	hw := strings.TrimSpace(u.Message.Text)
-	log.Println(hw)
-	h.bot.State.Set(chatID, telegram.StateWaitHWTextEdit)
-	_ = h.bot.SendRemove(chatID, "Введи новый текст ДЗ:")
+	log.Println(h.bot.State.Get(chatID))
+	switch h.bot.State.Get(chatID) {
+	case telegram.StateWaitHWTable:
+		h.bot.State.Set(chatID, telegram.StateWaitHWTextEdit)
+		_ = h.bot.SendRemove(chatID, "Введи новый текст ДЗ:")
+	case telegram.StateWaitHWTableToDelete:
+		h.bot.State.Set(chatID, telegram.StateWaitConfirmDelete)
+		_ = h.bot.Send(chatID, "Подтвердите удаление:", telegram.KBConfirmDelete())
+	case telegram.StateWaitHomeworkUpdateChoose:
+		if err := h.hw.UpdateStatus(ctx, userID, s.LessonTitle); err != nil {
+			log.Println(err)
+			h.bot.HWSessDel(chatID)
+			h.bot.State.Del(chatID)
+			return
+		}
+		h.bot.HWSessDel(chatID)
+		h.bot.State.Del(chatID)
+		_ = h.bot.Send(chatID, "Статус домашнего задания обновлен:", telegram.KBMember())
+
+	}
+}
+
+func (h *HWHandler) WaitConfirmDelete(ctx context.Context, u tgbotapi.Update) {
+	chatID := u.Message.Chat.ID
+	userID := u.Message.From.ID
+	s := h.bot.HWSessGet(chatID)
+	if u.Message.Text == telegram.BtnDelete {
+		if err := h.hw.DeleteHomework(ctx, userID, s.LessonTitle); err != nil {
+			log.Println(err)
+			h.bot.State.Del(chatID)
+			return
+		}
+		h.bot.State.Del(chatID)
+		h.bot.HWSessDel(chatID)
+		_ = h.bot.Send(chatID, "Домашнее задание удалено ✅", telegram.KBMember())
+	} else if u.Message.Text == telegram.BtnNotDelete {
+		h.bot.State.Del(chatID)
+		h.bot.HWSessDel(chatID)
+		_ = h.bot.Send(chatID, "Домашнее задание оставлено ✅", telegram.KBMember())
+	}
+
 }

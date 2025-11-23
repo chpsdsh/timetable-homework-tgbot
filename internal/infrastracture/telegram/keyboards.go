@@ -10,18 +10,23 @@ import (
 )
 
 const (
-	BtnShowTimeTable      = "Посмотреть расписание"
-	BtnPinHW              = "Прикрепить домашнее задание"
-	BtnChangeHW           = "Редактировать домашнее задание"
-	BtnConfReminder       = "Настроить напоминание о домашнем задание"
-	BtnDeleteNotification = "Удалить напоминание о домашних заданиях"
-	BtnWatchHomeworks     = "Посмотреть домашние задания"
-	BtnLeave              = "Отсоедениться от группы"
-	BtnGroup              = "Группы"
-	BtnTeacher            = "Преподаватели"
-	BtnClassRoom          = "Аудитории"
-	BtnJoin               = "Присоединиться к группе"
-	BtnSkip               = "Не присоединяться к группе"
+	BtnShowTimeTable              = "Посмотреть расписание"
+	BtnPinHW                      = "Прикрепить домашнее задание"
+	BtnChangeHW                   = "Редактировать домашнее задание"
+	BtnConfReminder               = "Настроить напоминание о домашнем задание"
+	BtnDeleteNotification         = "Удалить напоминание о домашних заданиях"
+	BtnWatchHomeworks             = "Посмотреть домашние задания"
+	BtnDeleteHomeworks            = "Удалить домашнее задание"
+	BtnUpdateHomeworkStatus       = "Отметить домашку сделанной"
+	StateWaitHomeworkUpdateChoose = "Выбрать домашку чтобы пометить сделанной"
+	BtnLeave                      = "Отсоедениться от группы"
+	BtnGroup                      = "Группы"
+	BtnTeacher                    = "Преподаватели"
+	BtnClassRoom                  = "Аудитории"
+	BtnJoin                       = "Присоединиться к группе"
+	BtnSkip                       = "Не присоединяться к группе"
+	BtnDelete                     = "Удалить"
+	BtnNotDelete                  = "Не удалять"
 )
 
 func KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
@@ -48,6 +53,10 @@ func KBMember() tgbotapi.ReplyKeyboardMarkup {
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnConfReminder),
 			tgbotapi.NewKeyboardButton(BtnDeleteNotification),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnDeleteHomeworks),
+			tgbotapi.NewKeyboardButton(BtnUpdateHomeworkStatus),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnLeave),
@@ -93,7 +102,7 @@ func KBDays(days []string) tgbotapi.ReplyKeyboardMarkup {
 func KBLessons(list []domain.LessonBrief) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
 	for _, l := range list {
-		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(l.Title)))
+		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(fmt.Sprintf("%s - %s", l.Title, l.LessonType))))
 	}
 	kb := tgbotapi.NewReplyKeyboard(rows...)
 	kb.ResizeKeyboard = true
@@ -152,6 +161,17 @@ func KBWeekdays(today time.Time) tgbotapi.ReplyKeyboardMarkup {
 	}
 
 	kb := tgbotapi.NewReplyKeyboard(rows...)
+	kb.ResizeKeyboard = true
+	return kb
+}
+
+func KBConfirmDelete() tgbotapi.ReplyKeyboardMarkup {
+	kb := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnDelete),
+			tgbotapi.NewKeyboardButton(BtnNotDelete),
+		),
+	)
 	kb.ResizeKeyboard = true
 	return kb
 }
