@@ -50,7 +50,8 @@ func (a *auth) JoinGroup(ctx context.Context, userID int64, group string) error 
 		return ErrGroupEmpty
 	}
 
-	if _, err := a.lessonRepo.GetLessonsGroup(ctx, group); err != nil {
+	lessons, err := a.lessonRepo.GetLessonsGroup(ctx, group)
+	if err != nil || len(lessons) == 0 {
 		return ErrGroupNotExist
 	}
 

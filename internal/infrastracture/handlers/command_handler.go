@@ -58,7 +58,8 @@ func (h *CommandHandler) WaitUserGroup(ctx context.Context, u tgbotapi.Update) {
 
 	if err := h.auth.JoinGroup(ctx, userID, group); err != nil {
 		log.Printf("JoinGroup failed: %v", err)
-		_ = h.bot.Send(chatID, "Не удалось присоединиться. Проверь номер группы и попробуй ещё раз.", telegram.KBMember())
+		h.bot.State.Del(chatID)
+		_ = h.bot.Send(chatID, "Не удалось присоединиться. Проверь номер группы и попробуй ещё раз.", telegram.KBGuest())
 		return
 	}
 

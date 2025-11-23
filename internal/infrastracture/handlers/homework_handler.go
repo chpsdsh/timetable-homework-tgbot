@@ -87,8 +87,9 @@ func (h *HWHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 func (h *HWHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	hw, err := h.hw.ListForLastWeek(ctx, userID)
-	if err != nil {
+	if err != nil || len(hw) == 0 {
 		h.bot.State.Del(chatID)
+		_ = h.bot.Send(chatID, "Нет домашек для редактирования.", telegram.KBMember())
 		return
 	}
 	h.bot.State.Set(chatID, telegram.StateWaitHWTable)
@@ -124,8 +125,9 @@ func (h *HWHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 func (h *HWHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	hw, err := h.hw.ListForLastWeek(ctx, userID)
-	if err != nil {
+	if err != nil || len(hw) == 0 {
 		h.bot.State.Del(chatID)
+		_ = h.bot.Send(chatID, "Нет домашних заданий", telegram.KBMember())
 		return
 	}
 	switch u.Message.Text {
@@ -134,6 +136,14 @@ func (h *HWHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
 		h.bot.State.Del(chatID)
 		_ = h.bot.Send(chatID, "Список домашек:\n "+formHw, telegram.KBMember())
 	case telegram.BtnDeleteHomeworks:
+		list, err := h.hw.ListForLastWeek(ctx, userID)
+		if err != nil || len(list) == 0 {
+			log.Println(err)
+			h.bot.State.Del(chatID)
+			_ = h.bot.Send(chatID, "Нет домашек для удаления.\n ", telegram.KBMember())
+			return
+		}
+
 		h.bot.State.Set(chatID, telegram.StateWaitHWTableToDelete)
 		_ = h.bot.Send(chatID, "Выбери домашку для удаления:\n ", telegram.KBHomeworks(hw))
 	case telegram.BtnUpdateHomeworkStatus:
@@ -181,7 +191,7 @@ func (h *HWHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Update) {
 		}
 		h.bot.HWSessDel(chatID)
 		h.bot.State.Del(chatID)
-		_ = h.bot.Send(chatID, "Статус домашнего задания обновлен:", telegram.KBMember())
+		_ = h.bot.Send(chatID, "Статус домашнего задания обновлен", telegram.KBMember())
 
 	}
 }
