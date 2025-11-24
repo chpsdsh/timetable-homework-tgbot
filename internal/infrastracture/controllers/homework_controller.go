@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"timetable-homework-tgbot/internal/repositories"
+	"timetable-homework-tgbot/internal/infrastracture/repositories"
 
 	"timetable-homework-tgbot/internal/domain"
 )

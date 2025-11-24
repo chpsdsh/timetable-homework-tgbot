@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"timetable-homework-tgbot/internal/app"
 	"timetable-homework-tgbot/internal/infrastracture/database"
-	"timetable-homework-tgbot/internal/repositories"
+	"timetable-homework-tgbot/internal/infrastracture/repositories"
 
 	"github.com/joho/godotenv"
 )

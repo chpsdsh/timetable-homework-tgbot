@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
-	"timetable-homework-tgbot/internal/repositories"
+	"timetable-homework-tgbot/internal/infrastracture/repositories"
 )
 
 type AuthController interface {
