@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"timetable-homework-tgbot/internal/infrastracture/repositories"
 
 	"timetable-homework-tgbot/internal/infrastracture/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/handlers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
-	"timetable-homework-tgbot/internal/repositories"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )

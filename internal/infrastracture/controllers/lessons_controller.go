@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"timetable-homework-tgbot/internal/infrastracture/formatter"
-	"timetable-homework-tgbot/internal/repositories"
+	"timetable-homework-tgbot/internal/infrastracture/repositories"
 )
 
 type LessonsController interface {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 	"timetable-homework-tgbot/internal/domain"
-	"timetable-homework-tgbot/internal/repositories"
+	"timetable-homework-tgbot/internal/infrastracture/repositories"
 )
 
 type NotificationController interface {
