@@ -165,7 +165,6 @@ func ParseGroups(facultyURL string) []urlselector.Group {
 		name := strings.TrimSpace(s.Text())
 		href, _ := s.Attr("href")
 
-		// ключ для уникальности
 		key := name + "|" + href
 		if _, ok := seen[key]; ok {
 			// уже добавляли такую группу → пропускаем
@@ -185,14 +184,16 @@ func ParseGroups(facultyURL string) []urlselector.Group {
 func ParseLessonsTeacher(url string) []lesson.LessonTeacher {
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return nil
 	}
 
 	defer resp.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return nil
 	}
 
 	table := doc.Find("table.time-table").First()

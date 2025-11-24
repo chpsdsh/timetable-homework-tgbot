@@ -3,7 +3,7 @@ package controllers
 import (
 	"context"
 	"log"
-	"timetable-homework-tgbot/internal/infrastracture/formatter"
+	"timetable-homework-tgbot/internal/application/formatter"
 	"timetable-homework-tgbot/internal/infrastracture/repositories"
 )
 
@@ -15,20 +15,21 @@ type LessonsController interface {
 }
 
 type lessonsController struct {
+	auth        AuthController
 	lessonsRepo repositories.LessonsRepository
 	userRepo    repositories.UsersRepository
 }
 
-func NewLessonController(lessonsRepo repositories.LessonsRepository, userRepo repositories.UsersRepository) LessonsController {
-	return &lessonsController{lessonsRepo: lessonsRepo, userRepo: userRepo}
+func NewLessonController(lessonsRepo repositories.LessonsRepository, userRepo repositories.UsersRepository, controller AuthController) LessonsController {
+	return &lessonsController{lessonsRepo: lessonsRepo, userRepo: userRepo, auth: controller}
 }
 
 func (l *lessonsController) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
-	group, err := l.userRepo.GetGroup(ctx, userID)
+	b, err := l.auth.EnsureJoined(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	return group != "", nil
+	return b, nil
 }
 
 func (l *lessonsController) GetTimetableGroup(ctx context.Context, group string) string {

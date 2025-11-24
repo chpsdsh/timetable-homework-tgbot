@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"timetable-homework-tgbot/internal/app"
+	"timetable-homework-tgbot/internal/application"
 	"timetable-homework-tgbot/internal/infrastracture/database"
 	"timetable-homework-tgbot/internal/infrastracture/repositories"
 
@@ -39,7 +39,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	a, err := app.NewFromEnv(usersRepo, lessonsRepo, hwRepo, notifRepo, ctx)
+	a, err := application.NewFromEnv(usersRepo, lessonsRepo, hwRepo, notifRepo, ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

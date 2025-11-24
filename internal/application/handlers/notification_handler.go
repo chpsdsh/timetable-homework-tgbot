@@ -7,19 +7,19 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"timetable-homework-tgbot/internal/infrastracture/controllers"
+	controllers2 "timetable-homework-tgbot/internal/application/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type NotifyHandler struct {
-	hw  controllers.HomeworkController
-	ctl controllers.NotificationController
+	hw  controllers2.HomeworkController
+	ctl controllers2.NotificationController
 	bot *telegram.Bot
 }
 
-func NewNotifyHandler(hw controllers.HomeworkController, ctl controllers.NotificationController, bot *telegram.Bot) *NotifyHandler {
+func NewNotifyHandler(hw controllers2.HomeworkController, ctl controllers2.NotificationController, bot *telegram.Bot) *NotifyHandler {
 	return &NotifyHandler{hw: hw, ctl: ctl, bot: bot}
 }
 
@@ -144,7 +144,6 @@ func (h *NotifyHandler) StartNotificationWorker(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				log.Println("tick")
 				h.checkPendingNotifications(ctx)
 			}
 		}
@@ -153,7 +152,6 @@ func (h *NotifyHandler) StartNotificationWorker(ctx context.Context) {
 
 func (h *NotifyHandler) checkPendingNotifications(ctx context.Context) {
 	pending, err := h.ctl.GetPendingNotifications(ctx)
-	log.Println(pending)
 	if err != nil {
 		log.Println("GetPendingNotifications:", err)
 		return

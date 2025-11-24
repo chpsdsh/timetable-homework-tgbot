@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"strings"
-	"timetable-homework-tgbot/internal/infrastracture/controllers"
+	"timetable-homework-tgbot/internal/application/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
