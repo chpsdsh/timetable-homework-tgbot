@@ -27,7 +27,7 @@ func (h *TimetableHandler) ShowMenu(ctx context.Context, u tgbotapi.Update) {
 
 func (h *TimetableHandler) AskGroup(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	h.bot.State.Set(chatID, telegram.StateWaitGroupTB)
+	h.bot.GetState().Set(chatID, telegram.StateWaitGroupTB)
 	_ = h.bot.SendRemove(chatID, "Введи номер группы")
 }
 
@@ -39,12 +39,12 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 
 	timetable := h.lessonsController.GetTimetableGroup(ctx, group)
 
-	h.bot.State.Del(chatID)
+	h.bot.GetState().Del(chatID)
 
 	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
 	if err != nil {
 		log.Println(err)
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		return
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
@@ -66,7 +66,7 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 
 func (h *TimetableHandler) AskTeacher(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	h.bot.State.Set(chatID, telegram.StateWaitTeacherTB)
+	h.bot.GetState().Set(chatID, telegram.StateWaitTeacherTB)
 	_ = h.bot.SendRemove(chatID, "Введи ФИО преподавателя")
 }
 
@@ -77,12 +77,12 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 	teacher := strings.TrimSpace(m.Text)
 
 	timetable := h.lessonsController.GetTimetableTeacher(ctx, teacher)
-	h.bot.State.Del(chatID)
+	h.bot.GetState().Del(chatID)
 
 	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
 	if err != nil {
 		log.Println(err)
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		return
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
@@ -104,7 +104,7 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 
 func (h *TimetableHandler) AskRoom(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	h.bot.State.Set(chatID, telegram.StateWaitRoomTB)
+	h.bot.GetState().Set(chatID, telegram.StateWaitRoomTB)
 	_ = h.bot.SendRemove(chatID, "Введи номер аудитории")
 }
 
@@ -115,11 +115,11 @@ func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 	room := strings.TrimSpace(m.Text)
 
 	timetable := h.lessonsController.GetTimetableRoom(ctx, room)
-	h.bot.State.Del(chatID)
+	h.bot.GetState().Del(chatID)
 	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
 	if err != nil {
 		log.Println(err)
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		return
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup

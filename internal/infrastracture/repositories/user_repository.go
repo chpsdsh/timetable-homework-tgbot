@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"timetable-homework-tgbot/internal/infrastracture/database"
 )
@@ -24,14 +25,15 @@ func NewUserRepo(db *database.DB) *UserRepo {
 func (r *UserRepo) GetGroup(ctx context.Context, userID int64) (string, error) {
 	var group sql.NullString
 
-	err := r.db.SQL.QueryRowContext(ctx,
+	err := r.db.GetSql().QueryRowContext(ctx,
 		`SELECT "group" FROM users WHERE tg_id = $1`,
 		userID,
 	).Scan(&group)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
+	
 	if err != nil {
 		return "", fmt.Errorf("GetGroup query: %w", err)
 	}
@@ -43,7 +45,7 @@ func (r *UserRepo) GetGroup(ctx context.Context, userID int64) (string, error) {
 }
 
 func (r *UserRepo) SetGroup(ctx context.Context, userID int64, group string) error {
-	_, err := r.db.SQL.ExecContext(ctx, `
+	_, err := r.db.GetSql().ExecContext(ctx, `
 INSERT INTO users (tg_id, "group")
 VALUES ($1, $2)
 ON CONFLICT (tg_id) DO UPDATE SET "group" = EXCLUDED."group"
@@ -57,7 +59,7 @@ ON CONFLICT (tg_id) DO UPDATE SET "group" = EXCLUDED."group"
 }
 
 func (r *UserRepo) RemoveGroup(ctx context.Context, userID int64) error {
-	_, err := r.db.SQL.ExecContext(ctx,
+	_, err := r.db.GetSql().ExecContext(ctx,
 		`UPDATE users SET "group" = NULL WHERE tg_id = $1`,
 		userID,
 	)

@@ -43,7 +43,7 @@ WHERE group_name = $1
 ORDER BY start_time;
 `
 	log.Println("Querying group lessons :", group)
-	rows, err := r.db.SQL.QueryContext(ctx, q, strings.TrimSpace(group))
+	rows, err := r.db.GetSql().QueryContext(ctx, q, strings.TrimSpace(group))
 	if err != nil {
 		log.Println("Error querying group lessons :", err)
 		return nil, fmt.Errorf("GetLessonsGroup query: %w", err)
@@ -109,7 +109,7 @@ ORDER BY start_time;
 
 	log.Println("Querying teacher lessons :", teacherFio)
 
-	rows, err := r.db.SQL.QueryContext(ctx, q, teacherFio)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, teacherFio)
 	if err != nil {
 		return nil, fmt.Errorf("GetLessonsTeacher query: %w", err)
 	}
@@ -174,7 +174,7 @@ ORDER BY start_time;
 `
 
 	log.Println("Querying room lessons :", roomName)
-	rows, err := r.db.SQL.QueryContext(ctx, q, roomName)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, roomName)
 	if err != nil {
 		return nil, fmt.Errorf("GetLessonsRoom query: %w", err)
 	}
@@ -240,7 +240,7 @@ ORDER BY CASE weekday
 END;
 `
 
-	rows, err := r.db.SQL.QueryContext(ctx, q, group)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, group)
 	if err != nil {
 		return nil, fmt.Errorf("GetDaysWithLessonsByGroup query: %w", err)
 	}
@@ -273,7 +273,7 @@ WHERE group_name = $1
 ORDER BY start_time;
 `
 
-	rows, err := r.db.SQL.QueryContext(ctx, q, group, day)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, group, day)
 	if err != nil {
 		return nil, fmt.Errorf("LessonsByDayGroup query: %w", err)
 	}
@@ -335,7 +335,7 @@ WHERE teacher_fio = $1
 ORDER BY start_time;
 `
 
-	rows, err := r.db.SQL.QueryContext(ctx, q, teacherFio, day)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, teacherFio, day)
 	if err != nil {
 		return nil, fmt.Errorf("LessonsByDayTeacher query: %w", err)
 	}
@@ -397,7 +397,7 @@ WHERE room_name = $1
 ORDER BY start_time;
 `
 
-	rows, err := r.db.SQL.QueryContext(ctx, q, roomName, day)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, roomName, day)
 	if err != nil {
 		return nil, fmt.Errorf("LessonsByDayRoom query: %w", err)
 	}

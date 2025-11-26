@@ -11,7 +11,7 @@ import (
 )
 
 type DB struct {
-	SQL *sql.DB
+	sql *sql.DB
 }
 
 func NewDB(ctx context.Context) (*DB, error) {
@@ -36,14 +36,18 @@ func NewDB(ctx context.Context) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{SQL: db}, nil
+	return &DB{sql: db}, nil
+}
+
+func (d *DB) GetSql() *sql.DB {
+	return d.sql
 }
 
 func (d *DB) Close() error {
-	if d == nil || d.SQL == nil {
+	if d == nil || d.sql == nil {
 		return nil
 	}
-	return d.SQL.Close()
+	return d.sql.Close()
 }
 
 func (d *DB) InitSchema(ctx context.Context) error {
@@ -135,6 +139,6 @@ CREATE INDEX IF NOT EXISTS idx_room_sched_lookup
   ON room_schedule(room_name, weekday, start_time);
 `
 
-	_, err := d.SQL.ExecContext(ctx, schema)
+	_, err := d.sql.ExecContext(ctx, schema)
 	return err
 }
