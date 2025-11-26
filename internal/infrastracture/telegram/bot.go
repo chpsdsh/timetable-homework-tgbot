@@ -30,6 +30,8 @@ const (
 	StateWaitRemindChoose     = "wait_remind_choose"
 )
 
+var ErrTooManyRequests = fmt.Errorf("too many requests")
+
 type HwSession struct {
 	Day         string
 	LessonTitle string
@@ -43,7 +45,7 @@ type RemindSession struct {
 
 type Bot struct {
 	api    *tgbotapi.BotAPI
-	State  StateStore
+	state  StateStore
 	router *Router
 
 	hwMu sync.Mutex
@@ -55,12 +57,14 @@ type Bot struct {
 
 func NewBot(api *tgbotapi.BotAPI, state StateStore) *Bot {
 	return &Bot{
-		api: api, State: state, router: NewRouter(),
+		api: api, state: state, router: NewRouter(),
 		hw: map[int64]HwSession{}, rem: map[int64]RemindSession{},
 	}
 }
 
 func (b *Bot) Router() *Router { return b.router }
+
+func (b *Bot) GetState() StateStore { return b.state }
 
 func (b *Bot) Run(ctx context.Context) error {
 	u := tgbotapi.NewUpdate(0)
@@ -87,7 +91,7 @@ func (b *Bot) handleMessage(parent context.Context, upd tgbotapi.Update) {
 	chatID := m.Chat.ID
 	text := strings.TrimSpace(m.Text)
 
-	if st := b.State.Get(chatID); st != "" && !m.IsCommand() {
+	if st := b.state.Get(chatID); st != "" && !m.IsCommand() {
 		if h, ok := matchState(b.router, st); ok {
 			h(ctx, upd)
 			return
@@ -106,7 +110,7 @@ func (b *Bot) handleMessage(parent context.Context, upd tgbotapi.Update) {
 		return
 	}
 
-	log.Printf("default: state=%q text=%q", b.State.Get(chatID), text)
+	log.Printf("default: state=%q text=%q", b.state.Get(chatID), text)
 	b.router.def(ctx, upd)
 }
 
@@ -143,8 +147,6 @@ func (b *Bot) RemSessGet(chatID int64) (RemindSession, bool) {
 	return s, ok
 }
 func (b *Bot) RemSessDel(chatID int64) { b.remMu.Lock(); delete(b.rem, chatID); b.remMu.Unlock() }
-
-var ErrTooManyRequests = fmt.Errorf("too many requests")
 
 func (b *Bot) SendWithRetry(msg tgbotapi.Chattable) error {
 	const maxAttempts = 3

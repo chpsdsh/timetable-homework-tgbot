@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"timetable-homework-tgbot/internal/app"
+	"timetable-homework-tgbot/internal/application"
 	"timetable-homework-tgbot/internal/infrastracture/database"
 	"timetable-homework-tgbot/internal/infrastracture/repositories"
 
@@ -19,6 +19,7 @@ func main() {
 
 	ctx := context.Background()
 	db, err := database.NewDB(ctx)
+	defer func() { _ = db.Close() }()
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
@@ -31,15 +32,15 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
 
-	var usersRepo repositories.UsersRepository = &repositories.UserRepo{DB: db}
-	var lessonsRepo repositories.LessonsRepository = &repositories.LessonsRepo{DB: db}
-	var hwRepo repositories.HomeworkRepository = &repositories.HomeworkRepo{DB: db}
-	var notifRepo repositories.NotificationRepository = &repositories.NotificationRepo{DB: db}
+	var usersRepo repositories.UsersRepository = repositories.NewUserRepo(db)
+	var lessonsRepo repositories.LessonsRepository = repositories.NewLessonsRepo(db)
+	var hwRepo repositories.HomeworkRepository = repositories.NewHomeworkRepo(db)
+	var notifRepo repositories.NotificationRepository = repositories.NewNotificationRepo(db)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	a, err := app.NewFromEnv(usersRepo, lessonsRepo, hwRepo, notifRepo, ctx)
+	a, err := application.NewFromEnv(usersRepo, lessonsRepo, hwRepo, notifRepo, ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

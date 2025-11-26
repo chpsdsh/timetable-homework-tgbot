@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"timetable-homework-tgbot/internal/infrastracture/controllers"
+	"timetable-homework-tgbot/internal/application/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -30,7 +30,7 @@ func (h *NotifyHandler) Start(ctx context.Context, u tgbotapi.Update) {
 		_ = h.bot.Send(chatID, "За последнюю неделю ДЗ не найдено.", telegram.KBMember())
 		return
 	}
-	h.bot.State.Set(chatID, telegram.StateWaitRemindChooseHW)
+	h.bot.GetState().Set(chatID, telegram.StateWaitRemindChooseHW)
 	_ = h.bot.Send(chatID, "Выбери ДЗ, для которого поставить напоминание:", telegram.KBHomeworks(list))
 }
 
@@ -44,19 +44,19 @@ func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
 	if err != nil {
 		log.Println(err)
 		h.bot.HWSessDel(chatID)
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		return
 	}
 	if !exist {
 		log.Println(homework)
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		h.bot.HWSessDel(chatID)
 		_ = h.bot.Send(chatID, "Некорректное домашнее задание", telegram.KBMember())
 		return
 	}
 
 	h.bot.RemSessSet(chatID, telegram.RemindSession{SubjectWithTask: homework})
-	h.bot.State.Set(chatID, telegram.StateWaitRemindChooseDay)
+	h.bot.GetState().Set(chatID, telegram.StateWaitRemindChooseDay)
 	_ = h.bot.Send(chatID, "В какой день напоминать?", telegram.KBWeekdays(time.Now()))
 }
 
@@ -64,15 +64,15 @@ func (h *NotifyHandler) WaitChooseDay(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	date := strings.TrimSpace(u.Message.Text)
 	if !isDate(date) {
-		h.bot.State.Del(chatID)
-		_ = h.bot.SendRemove(chatID, "Формат времени HH:MM.")
+		h.bot.GetState().Del(chatID)
+		_ = h.bot.SendRemove(chatID, "Неверный формат даты")
 		return
 	}
 
 	s, _ := h.bot.RemSessGet(chatID)
 	s.Date = date
 	h.bot.RemSessSet(chatID, s)
-	h.bot.State.Set(chatID, telegram.StateWaitRemindChooseTime)
+	h.bot.GetState().Set(chatID, telegram.StateWaitRemindChooseTime)
 	_ = h.bot.SendRemove(chatID, "Во сколько напоминать(HH:MM)?")
 }
 
@@ -87,7 +87,7 @@ func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 	s, ok := h.bot.RemSessGet(chatID)
 	if !ok || s.SubjectWithTask == "" {
 		_ = h.bot.Send(chatID, "Сессия потерялась. Начни заново.", telegram.KBMember())
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		return
 	}
 	s.TimeHHMM = tStr
@@ -97,12 +97,12 @@ func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 		log.Println(err.Error())
 		_ = h.bot.Send(chatID, "Не удалось создать напоминание.", telegram.KBMember())
 		h.bot.RemSessDel(chatID)
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		return
 	}
 
 	h.bot.RemSessDel(chatID)
-	h.bot.State.Del(chatID)
+	h.bot.GetState().Del(chatID)
 	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание поставлено: %s в %s ✅", s.Date, s.TimeHHMM), telegram.KBMember())
 }
 
@@ -112,11 +112,11 @@ func (h *NotifyHandler) StartDeleteNotification(ctx context.Context, u tgbotapi.
 	list, err := h.ctl.GetUserNotifications(ctx, userID)
 
 	if err != nil || len(list) == 0 {
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		_ = h.bot.Send(chatID, "Напоминаний не найдено.", telegram.KBMember())
 		return
 	}
-	h.bot.State.Set(chatID, telegram.StateWaitRemindChoose)
+	h.bot.GetState().Set(chatID, telegram.StateWaitRemindChoose)
 	_ = h.bot.Send(chatID, "Выбери напоминание, для удаления:", telegram.KBNotifications(list))
 
 }
@@ -127,10 +127,10 @@ func (h *NotifyHandler) WaitDeleteNotification(ctx context.Context, u tgbotapi.U
 	log.Println(not)
 	if err := h.ctl.DeleteUserNotification(ctx, userID, not); err != nil {
 		_ = h.bot.Send(chatID, "Не удалось удалить напоминание.", telegram.KBMember())
-		h.bot.State.Del(chatID)
+		h.bot.GetState().Del(chatID)
 		return
 	}
-	h.bot.State.Del(chatID)
+	h.bot.GetState().Del(chatID)
 	_ = h.bot.Send(chatID, fmt.Sprintf("Напоминание удалено: %s ✅", not), telegram.KBMember())
 }
 
@@ -144,7 +144,6 @@ func (h *NotifyHandler) StartNotificationWorker(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				log.Println("tick")
 				h.checkPendingNotifications(ctx)
 			}
 		}
@@ -153,7 +152,6 @@ func (h *NotifyHandler) StartNotificationWorker(ctx context.Context) {
 
 func (h *NotifyHandler) checkPendingNotifications(ctx context.Context) {
 	pending, err := h.ctl.GetPendingNotifications(ctx)
-	log.Println(pending)
 	if err != nil {
 		log.Println("GetPendingNotifications:", err)
 		return

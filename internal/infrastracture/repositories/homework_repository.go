@@ -8,10 +8,6 @@ import (
 	"timetable-homework-tgbot/internal/infrastracture/database"
 )
 
-type HomeworkRepo struct {
-	DB *database.DB
-}
-
 type HomeworkRepository interface {
 	Save(ctx context.Context, userID int64, subject, text string) error
 	Update(ctx context.Context, userID int64, subject, newText string) error
@@ -19,6 +15,14 @@ type HomeworkRepository interface {
 	Delete(ctx context.Context, userID int64, subject string) error
 	ListForLastWeek(ctx context.Context, userID int64) ([]domain.HWBrief, error)
 	CheckExistence(ctx context.Context, userID int64, subject string) (bool, error)
+}
+
+type HomeworkRepo struct {
+	db *database.DB
+}
+
+func NewHomeworkRepo(db *database.DB) *HomeworkRepo {
+	return &HomeworkRepo{db: db}
 }
 
 func (r *HomeworkRepo) Save(
@@ -30,7 +34,7 @@ func (r *HomeworkRepo) Save(
 INSERT INTO homeworks (id_user, subject, homework_text,status)
 VALUES ($1, $2, $3, $4);
 `
-	_, err := r.DB.SQL.ExecContext(ctx, q, userID, subject, text, "new")
+	_, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, text, "new")
 	if err != nil {
 		return fmt.Errorf("Save homework exec: %w", err)
 	}
@@ -49,7 +53,7 @@ SET homework_text = $3
 WHERE subject = $2
   AND id_user = $1;
 `
-	res, err := r.DB.SQL.ExecContext(ctx, q, userID, subject, newText)
+	res, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, newText)
 	if err != nil {
 		return fmt.Errorf("Update homework exec: %w", err)
 	}
@@ -72,7 +76,7 @@ FROM homeworks h
 WHERE h.id_user = $1;
 `
 
-	rows, err := r.DB.SQL.QueryContext(ctx, q, userID)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, userID)
 	if err != nil {
 		return nil, fmt.Errorf("ListForLastWeek query: %w", err)
 	}
@@ -110,7 +114,7 @@ SET status = $3
 WHERE subject = $2
   AND id_user = $1;
 `
-	res, err := r.DB.SQL.ExecContext(ctx, q, userID, subject, "done")
+	res, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, "done")
 	if err != nil {
 		return fmt.Errorf("Update homework exec: %w", err)
 	}
@@ -131,7 +135,7 @@ DELETE FROM homeworks
 WHERE id_user = $1
   AND subject = $2;
 `
-	_, err := r.DB.SQL.ExecContext(ctx, q, userID, subject)
+	_, err := r.db.GetSql().ExecContext(ctx, q, userID, subject)
 	if err != nil {
 		return fmt.Errorf("homeworks.Delete exec: %w", err)
 	}
@@ -153,7 +157,7 @@ LIMIT 1;
 `
 
 	var dummy int
-	err := r.DB.SQL.QueryRowContext(ctx, q, userID, subject).Scan(&dummy)
+	err := r.db.GetSql().QueryRowContext(ctx, q, userID, subject).Scan(&dummy)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}

@@ -1,14 +1,13 @@
-package app
+package application
 
 import (
 	"context"
 	"fmt"
 	"log"
 	"os"
+	"timetable-homework-tgbot/internal/application/controllers"
+	"timetable-homework-tgbot/internal/application/handlers"
 	"timetable-homework-tgbot/internal/infrastracture/repositories"
-
-	"timetable-homework-tgbot/internal/infrastracture/controllers"
-	"timetable-homework-tgbot/internal/infrastracture/handlers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -27,11 +26,11 @@ func NewWithDeps(
 	ctx context.Context,
 ) (*App, error) {
 
-	// Контроллеры — ФЕЙКИ с
+	// Контроллеры
 	authCtl := controllers.NewAuthController(userRepo, lessonRepo)
 	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
 	notifCtl := controllers.NewNotificationController(notificationRepo)
-	lessonCtl := controllers.NewLessonController(lessonRepo, userRepo)
+	lessonCtl := controllers.NewLessonController(lessonRepo, userRepo, authCtl)
 
 	// Telegram
 	state := telegram.NewMemState()
@@ -40,7 +39,7 @@ func NewWithDeps(
 	// Хендлеры
 	cmdH := handlers.NewCommandHandler(authCtl, bot)
 	ttH := handlers.NewTimetableHandler(bot, lessonCtl)
-	hwH := handlers.NewHWHandler(hwCtl, bot)
+	hwH := handlers.NewHomeworkHandler(hwCtl, bot)
 	ntH := handlers.NewNotifyHandler(hwCtl, notifCtl, bot)
 
 	// Роутинг
@@ -93,7 +92,7 @@ func NewWithDeps(
 	ntH.StartNotificationWorker(ctx)
 	// дефолт
 	r.Default(func(ctx context.Context, u tgbotapi.Update) {
-		_ = bot.Send(u.Message.Chat.ID, "Нажми кнопку меню или /start", telegram.KBMember())
+		_ = bot.Send(u.Message.Chat.ID, "Нажми кнопку меню или /start", telegram.KBGuest())
 	})
 
 	return &App{bot: bot}, nil

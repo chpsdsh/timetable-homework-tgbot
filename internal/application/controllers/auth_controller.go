@@ -8,32 +8,32 @@ import (
 	"timetable-homework-tgbot/internal/infrastracture/repositories"
 )
 
+var (
+	ErrGroupEmpty    = errors.New("group is empty")
+	ErrGroupNotExist = errors.New("group does not exist")
+)
+
 type AuthController interface {
 	EnsureJoined(ctx context.Context, userID int64) (bool, error)
 	JoinGroup(ctx context.Context, userID int64, group string) error
 	LeaveGroup(ctx context.Context, userID int64) error
 }
 
-var (
-	ErrGroupEmpty    = errors.New("group is empty")
-	ErrGroupNotExist = errors.New("group does not exist")
-)
-
-type auth struct {
+type authenticationController struct {
 	timeout    time.Duration
 	userRepo   repositories.UsersRepository
 	lessonRepo repositories.LessonsRepository
 }
 
 func NewAuthController(userRepo repositories.UsersRepository, lessonRepo repositories.LessonsRepository) AuthController {
-	return &auth{
+	return &authenticationController{
 		timeout:    5 * time.Second,
 		userRepo:   userRepo,
 		lessonRepo: lessonRepo,
 	}
 }
 
-func (a *auth) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
+func (a *authenticationController) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
 	group, err := a.userRepo.GetGroup(ctx, userID)
 	if err != nil {
 		return false, err
@@ -41,7 +41,7 @@ func (a *auth) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
 	return group != "", nil
 }
 
-func (a *auth) JoinGroup(ctx context.Context, userID int64, group string) error {
+func (a *authenticationController) JoinGroup(ctx context.Context, userID int64, group string) error {
 	ctx, cancel := context.WithTimeout(ctx, a.timeout)
 	defer cancel()
 
@@ -62,7 +62,7 @@ func (a *auth) JoinGroup(ctx context.Context, userID int64, group string) error 
 	return nil
 }
 
-func (a *auth) LeaveGroup(ctx context.Context, userID int64) error {
+func (a *authenticationController) LeaveGroup(ctx context.Context, userID int64) error {
 	err := a.userRepo.RemoveGroup(ctx, userID)
 	if err != nil {
 		return err

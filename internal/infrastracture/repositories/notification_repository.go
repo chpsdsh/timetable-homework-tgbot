@@ -8,15 +8,19 @@ import (
 	"timetable-homework-tgbot/internal/infrastracture/database"
 )
 
-type NotificationRepo struct {
-	DB *database.DB
-}
-
 type NotificationRepository interface {
 	AddNotification(ctx context.Context, userID int64, subject string, ts time.Time) error
 	GetPendingNotifications(ctx context.Context, now time.Time) ([]domain.Notification, error)
 	DeleteNotification(ctx context.Context, userID int64, subject string, ts time.Time) error
 	GetUserNotifications(ctx context.Context, userID int64) ([]domain.Notification, error)
+}
+
+type NotificationRepo struct {
+	db *database.DB
+}
+
+func NewNotificationRepo(db *database.DB) *NotificationRepo {
+	return &NotificationRepo{db: db}
 }
 
 func (r *NotificationRepo) AddNotification(
@@ -29,7 +33,7 @@ func (r *NotificationRepo) AddNotification(
 INSERT INTO notifications (user_id, subject, ts)
 VALUES ($1, $2, $3)
 `
-	_, err := r.DB.SQL.ExecContext(ctx, q, userID, subject, ts)
+	_, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, ts)
 	if err != nil {
 		return fmt.Errorf("AddNotification exec: %w", err)
 	}
@@ -48,7 +52,7 @@ WHERE ts <= $1
 ORDER BY ts
 `
 
-	rows, err := r.DB.SQL.QueryContext(ctx, q, now)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, now)
 	if err != nil {
 		return nil, fmt.Errorf("GetPendingNotifications query: %w", err)
 	}
@@ -86,7 +90,7 @@ WHERE user_id = $1
 ORDER BY ts;
 `
 
-	rows, err := r.DB.SQL.QueryContext(ctx, q, userID)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, userID)
 	if err != nil {
 		return nil, fmt.Errorf("GetUserNotifications query: %w", err)
 	}
@@ -125,7 +129,7 @@ WHERE user_id = $1
   AND subject = $2
   AND ts = $3;
 `
-	_, err := r.DB.SQL.ExecContext(ctx, q, userID, subject, ts)
+	_, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, ts)
 	if err != nil {
 		return fmt.Errorf("DeleteNotification exec: %w", err)
 	}

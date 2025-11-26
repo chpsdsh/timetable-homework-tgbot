@@ -10,9 +10,3 @@ type LessonBrief struct {
 	Groups     string
 	Week       string
 }
-
-type HWBrief struct {
-	Subject      string
-	HomeworkText string
-	Status       string
-}
