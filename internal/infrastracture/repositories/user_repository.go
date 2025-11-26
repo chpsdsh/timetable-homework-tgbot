@@ -14,13 +14,17 @@ type UsersRepository interface {
 }
 
 type UserRepo struct {
-	DB *database.DB
+	db *database.DB
+}
+
+func NewUserRepo(db *database.DB) *UserRepo {
+	return &UserRepo{db: db}
 }
 
 func (r *UserRepo) GetGroup(ctx context.Context, userID int64) (string, error) {
 	var group sql.NullString
 
-	err := r.DB.SQL.QueryRowContext(ctx,
+	err := r.db.SQL.QueryRowContext(ctx,
 		`SELECT "group" FROM users WHERE tg_id = $1`,
 		userID,
 	).Scan(&group)
@@ -39,7 +43,7 @@ func (r *UserRepo) GetGroup(ctx context.Context, userID int64) (string, error) {
 }
 
 func (r *UserRepo) SetGroup(ctx context.Context, userID int64, group string) error {
-	_, err := r.DB.SQL.ExecContext(ctx, `
+	_, err := r.db.SQL.ExecContext(ctx, `
 INSERT INTO users (tg_id, "group")
 VALUES ($1, $2)
 ON CONFLICT (tg_id) DO UPDATE SET "group" = EXCLUDED."group"
@@ -53,7 +57,7 @@ ON CONFLICT (tg_id) DO UPDATE SET "group" = EXCLUDED."group"
 }
 
 func (r *UserRepo) RemoveGroup(ctx context.Context, userID int64) error {
-	_, err := r.DB.SQL.ExecContext(ctx,
+	_, err := r.db.SQL.ExecContext(ctx,
 		`UPDATE users SET "group" = NULL WHERE tg_id = $1`,
 		userID,
 	)

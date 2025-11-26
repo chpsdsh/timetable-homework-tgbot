@@ -7,19 +7,19 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	controllers2 "timetable-homework-tgbot/internal/application/controllers"
+	"timetable-homework-tgbot/internal/application/controllers"
 	"timetable-homework-tgbot/internal/infrastracture/telegram"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type NotifyHandler struct {
-	hw  controllers2.HomeworkController
-	ctl controllers2.NotificationController
+	hw  controllers.HomeworkController
+	ctl controllers.NotificationController
 	bot *telegram.Bot
 }
 
-func NewNotifyHandler(hw controllers2.HomeworkController, ctl controllers2.NotificationController, bot *telegram.Bot) *NotifyHandler {
+func NewNotifyHandler(hw controllers.HomeworkController, ctl controllers.NotificationController, bot *telegram.Bot) *NotifyHandler {
 	return &NotifyHandler{hw: hw, ctl: ctl, bot: bot}
 }
 
@@ -65,7 +65,7 @@ func (h *NotifyHandler) WaitChooseDay(ctx context.Context, u tgbotapi.Update) {
 	date := strings.TrimSpace(u.Message.Text)
 	if !isDate(date) {
 		h.bot.State.Del(chatID)
-		_ = h.bot.SendRemove(chatID, "Формат времени HH:MM.")
+		_ = h.bot.SendRemove(chatID, "Неверный формат даты")
 		return
 	}
 

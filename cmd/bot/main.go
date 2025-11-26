@@ -19,6 +19,7 @@ func main() {
 
 	ctx := context.Background()
 	db, err := database.NewDB(ctx)
+	defer func() { _ = db.Close() }()
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
@@ -31,10 +32,10 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
 
-	var usersRepo repositories.UsersRepository = &repositories.UserRepo{DB: db}
-	var lessonsRepo repositories.LessonsRepository = &repositories.LessonsRepo{DB: db}
-	var hwRepo repositories.HomeworkRepository = &repositories.HomeworkRepo{DB: db}
-	var notifRepo repositories.NotificationRepository = &repositories.NotificationRepo{DB: db}
+	var usersRepo repositories.UsersRepository = repositories.NewUserRepo(db)
+	var lessonsRepo repositories.LessonsRepository = repositories.NewLessonsRepo(db)
+	var hwRepo repositories.HomeworkRepository = repositories.NewHomeworkRepo(db)
+	var notifRepo repositories.NotificationRepository = repositories.NewNotificationRepo(db)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

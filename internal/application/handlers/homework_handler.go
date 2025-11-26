@@ -11,16 +11,16 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type HWHandler struct {
+type HomeworkHandler struct {
 	hw  controllers.HomeworkController
 	bot *telegram.Bot
 }
 
-func NewHWHandler(hw controllers.HomeworkController, bot *telegram.Bot) *HWHandler {
-	return &HWHandler{hw: hw, bot: bot}
+func NewHomeworkHandler(hw controllers.HomeworkController, bot *telegram.Bot) *HomeworkHandler {
+	return &HomeworkHandler{hw: hw, bot: bot}
 }
 
-func (h *HWHandler) PinStart(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) PinStart(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	days, err := h.hw.DaysWithLessons(ctx, userID)
 	if err != nil || len(days) == 0 {
@@ -31,7 +31,7 @@ func (h *HWHandler) PinStart(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.Send(chatID, "К какому дню недели прикрепить ДЗ?", telegram.KBDays(days))
 }
 
-func (h *HWHandler) WaitDay(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) WaitDay(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	day := strings.TrimSpace(u.Message.Text)
 	lessons, err := h.hw.LessonsByDay(ctx, userID, day)
@@ -47,7 +47,7 @@ func (h *HWHandler) WaitDay(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.Send(chatID, "Выбери пару:", telegram.KBLessons(lessons))
 }
 
-func (h *HWHandler) WaitLesson(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) WaitLesson(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	args := strings.Split(strings.TrimSpace(u.Message.Text), "-")
 	lesson := strings.TrimSpace(args[0])
@@ -65,7 +65,7 @@ func (h *HWHandler) WaitLesson(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.SendRemove(chatID, "Введи текст ДЗ:")
 }
 
-func (h *HWHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	text := strings.TrimSpace(u.Message.Text)
 	s := h.bot.HWSessGet(chatID)
@@ -84,7 +84,7 @@ func (h *HWHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.Send(chatID, "Домашнее задание сохранено ✅", telegram.KBMember())
 }
 
-func (h *HWHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	hw, err := h.hw.ListForLastWeek(ctx, userID)
 	if err != nil || len(hw) == 0 {
@@ -96,7 +96,7 @@ func (h *HWHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.Send(chatID, "Выбери день для редактирования ДЗ:", telegram.KBHomeworks(hw))
 }
 
-func (h *HWHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	newText := strings.TrimSpace(u.Message.Text)
 	if h.bot.State.Get(chatID) != telegram.StateWaitHWTextEdit {
@@ -122,7 +122,7 @@ func (h *HWHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.Send(chatID, "Домашнее задание обновлено ✅", telegram.KBMember())
 }
 
-func (h *HWHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	hw, err := h.hw.ListForLastWeek(ctx, userID)
 	if err != nil || len(hw) == 0 {
@@ -152,7 +152,7 @@ func (h *HWHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
 	}
 }
 
-func (h *HWHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	userID := u.Message.From.ID
 	s := h.bot.HWSessGet(chatID)
@@ -196,7 +196,7 @@ func (h *HWHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Update) {
 	}
 }
 
-func (h *HWHandler) WaitConfirmDelete(ctx context.Context, u tgbotapi.Update) {
+func (h *HomeworkHandler) WaitConfirmDelete(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	userID := u.Message.From.ID
 	s := h.bot.HWSessGet(chatID)

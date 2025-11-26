@@ -30,6 +30,8 @@ const (
 	StateWaitRemindChoose     = "wait_remind_choose"
 )
 
+var ErrTooManyRequests = fmt.Errorf("too many requests")
+
 type HwSession struct {
 	Day         string
 	LessonTitle string
@@ -143,8 +145,6 @@ func (b *Bot) RemSessGet(chatID int64) (RemindSession, bool) {
 	return s, ok
 }
 func (b *Bot) RemSessDel(chatID int64) { b.remMu.Lock(); delete(b.rem, chatID); b.remMu.Unlock() }
-
-var ErrTooManyRequests = fmt.Errorf("too many requests")
 
 func (b *Bot) SendWithRetry(msg tgbotapi.Chattable) error {
 	const maxAttempts = 3

@@ -39,7 +39,7 @@ func NewWithDeps(
 	// Хендлеры
 	cmdH := handlers.NewCommandHandler(authCtl, bot)
 	ttH := handlers.NewTimetableHandler(bot, lessonCtl)
-	hwH := handlers.NewHWHandler(hwCtl, bot)
+	hwH := handlers.NewHomeworkHandler(hwCtl, bot)
 	ntH := handlers.NewNotifyHandler(hwCtl, notifCtl, bot)
 
 	// Роутинг
