@@ -15,15 +15,16 @@ type TimetableHandler struct {
 	bot               *telegram.Bot
 	lessonsController controllers.LessonsController
 	formatter         *formatter.Formatter
+	keyboard          *telegram.KeyboardController
 }
 
 func NewTimetableHandler(bot *telegram.Bot, lessonCtl controllers.LessonsController) *TimetableHandler {
-	return &TimetableHandler{bot: bot, lessonsController: lessonCtl, formatter: formatter.GetFormatter()}
+	return &TimetableHandler{bot: bot, lessonsController: lessonCtl, formatter: formatter.GetFormatter(), keyboard: telegram.GetKeyboardController()}
 }
 
 func (h *TimetableHandler) ShowMenu(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	_ = h.bot.Send(chatID, "Какое расписание ты хочешь увидеть?", telegram.KBChooseTimetable())
+	_ = h.bot.Send(chatID, "Какое расписание ты хочешь увидеть?", h.keyboard.KBChooseTimetable())
 }
 
 func (h *TimetableHandler) AskGroup(ctx context.Context, u tgbotapi.Update) {
@@ -50,9 +51,9 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
 	if joined {
-		keyboardFunc = telegram.KBMember
+		keyboardFunc = h.keyboard.KBMember
 	} else {
-		keyboardFunc = telegram.KBGuest
+		keyboardFunc = h.keyboard.KBGuest
 	}
 
 	parts := h.formatter.SplitForTelegram(timetable)
@@ -88,9 +89,9 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
 	if joined {
-		keyboardFunc = telegram.KBMember
+		keyboardFunc = h.keyboard.KBMember
 	} else {
-		keyboardFunc = telegram.KBGuest
+		keyboardFunc = h.keyboard.KBGuest
 	}
 
 	parts := h.formatter.SplitForTelegram(timetable)
@@ -125,9 +126,9 @@ func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
 	if joined {
-		keyboardFunc = telegram.KBMember
+		keyboardFunc = h.keyboard.KBMember
 	} else {
-		keyboardFunc = telegram.KBGuest
+		keyboardFunc = h.keyboard.KBGuest
 	}
 	parts := h.formatter.SplitForTelegram(timetable)
 	for _, part := range parts {

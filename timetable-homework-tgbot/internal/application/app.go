@@ -91,8 +91,9 @@ func NewWithDeps(
 
 	ntH.StartNotificationWorker(ctx)
 	// дефолт
+	keyboard := telegram.GetKeyboardController()
 	r.Default(func(ctx context.Context, u tgbotapi.Update) {
-		_ = bot.Send(u.Message.Chat.ID, "Нажми кнопку меню или /start", telegram.KBGuest())
+		_ = bot.Send(u.Message.Chat.ID, "Нажми кнопку меню или /start", keyboard.KBGuest())
 	})
 
 	return &App{bot: bot}, nil
