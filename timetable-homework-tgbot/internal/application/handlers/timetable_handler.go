@@ -14,10 +14,11 @@ import (
 type TimetableHandler struct {
 	bot               *telegram.Bot
 	lessonsController controllers.LessonsController
+	formatter         formatter.Formatter
 }
 
 func NewTimetableHandler(bot *telegram.Bot, lessonCtl controllers.LessonsController) *TimetableHandler {
-	return &TimetableHandler{bot: bot, lessonsController: lessonCtl}
+	return &TimetableHandler{bot: bot, lessonsController: lessonCtl, formatter: *formatter.NewFormatter()}
 }
 
 func (h *TimetableHandler) ShowMenu(ctx context.Context, u tgbotapi.Update) {
@@ -54,7 +55,7 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 		keyboardFunc = telegram.KBGuest
 	}
 
-	parts := formatter.SplitForTelegram(timetable)
+	parts := h.formatter.SplitForTelegram(timetable)
 
 	for _, part := range parts {
 		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
@@ -92,7 +93,7 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 		keyboardFunc = telegram.KBGuest
 	}
 
-	parts := formatter.SplitForTelegram(timetable)
+	parts := h.formatter.SplitForTelegram(timetable)
 
 	for _, part := range parts {
 		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
@@ -128,7 +129,7 @@ func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 	} else {
 		keyboardFunc = telegram.KBGuest
 	}
-	parts := formatter.SplitForTelegram(timetable)
+	parts := h.formatter.SplitForTelegram(timetable)
 	for _, part := range parts {
 		if err := h.bot.Send(chatID, part, keyboardFunc()); err != nil {
 			log.Println("send timetable part:", err)

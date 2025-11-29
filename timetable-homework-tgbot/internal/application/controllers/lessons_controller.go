@@ -17,10 +17,11 @@ type LessonsController interface {
 type lessonsController struct {
 	auth        AuthController
 	lessonsRepo repositories.LessonsRepository
+	formatter   formatter.Formatter
 }
 
 func NewLessonController(lessonsRepo repositories.LessonsRepository, userRepo repositories.UsersRepository, controller AuthController) LessonsController {
-	return &lessonsController{lessonsRepo: lessonsRepo, auth: controller}
+	return &lessonsController{lessonsRepo: lessonsRepo, auth: controller, formatter: *formatter.NewFormatter()}
 }
 
 func (l *lessonsController) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
@@ -37,7 +38,7 @@ func (l *lessonsController) GetTimetableGroup(ctx context.Context, group string)
 		log.Println(err.Error())
 		return "not valid group"
 	}
-	timetable := formatter.FormatTimetable(lessons)
+	timetable := l.formatter.FormatTimetable(lessons)
 	return timetable
 }
 
@@ -47,7 +48,7 @@ func (l *lessonsController) GetTimetableTeacher(ctx context.Context, teacherFio 
 		log.Println(err.Error())
 		return "not valid teacher"
 	}
-	timetable := formatter.FormatTimetable(lessons)
+	timetable := l.formatter.FormatTimetable(lessons)
 	return timetable
 }
 
@@ -57,6 +58,6 @@ func (l *lessonsController) GetTimetableRoom(ctx context.Context, room string) s
 		log.Println(err.Error())
 		return "not valid room"
 	}
-	timetable := formatter.FormatTimetable(lessons)
+	timetable := l.formatter.FormatTimetable(lessons)
 	return timetable
 }

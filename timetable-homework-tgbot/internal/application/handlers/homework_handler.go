@@ -12,12 +12,13 @@ import (
 )
 
 type HomeworkHandler struct {
-	hw  controllers.HomeworkController
-	bot *telegram.Bot
+	hw        controllers.HomeworkController
+	bot       *telegram.Bot
+	formatter formatter.Formatter
 }
 
 func NewHomeworkHandler(hw controllers.HomeworkController, bot *telegram.Bot) *HomeworkHandler {
-	return &HomeworkHandler{hw: hw, bot: bot}
+	return &HomeworkHandler{hw: hw, bot: bot, formatter: *formatter.NewFormatter()}
 }
 
 func (h *HomeworkHandler) PinStart(ctx context.Context, u tgbotapi.Update) {
@@ -132,7 +133,7 @@ func (h *HomeworkHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) 
 	}
 	switch u.Message.Text {
 	case telegram.BtnWatchHomeworks:
-		formHw := formatter.FormatHomeworks(hw)
+		formHw := h.formatter.FormatHomeworks(hw)
 		h.bot.GetState().Del(chatID)
 		_ = h.bot.Send(chatID, "Список домашек:\n "+formHw, telegram.KBMember())
 	case telegram.BtnDeleteHomeworks:
