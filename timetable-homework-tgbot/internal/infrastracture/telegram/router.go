@@ -30,7 +30,7 @@ func (r *Router) OnText(txt string, h Handler)    { r.text[txt] = h }
 func (r *Router) OnState(st string, h Handler)    { r.state[st] = h }
 func (r *Router) Default(h Handler)               { r.def = h }
 
-func matchState(r *Router, st string) (Handler, bool) {
+func (r *Router) matchState(st string) (Handler, bool) {
 	if h, ok := r.state[st]; ok {
 		return h, true
 	}
