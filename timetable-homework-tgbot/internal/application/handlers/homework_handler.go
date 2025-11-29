@@ -14,11 +14,11 @@ import (
 type HomeworkHandler struct {
 	hw        controllers.HomeworkController
 	bot       *telegram.Bot
-	formatter formatter.Formatter
+	formatter *formatter.Formatter
 }
 
 func NewHomeworkHandler(hw controllers.HomeworkController, bot *telegram.Bot) *HomeworkHandler {
-	return &HomeworkHandler{hw: hw, bot: bot, formatter: *formatter.NewFormatter()}
+	return &HomeworkHandler{hw: hw, bot: bot, formatter: formatter.GetFormatter()}
 }
 
 func (h *HomeworkHandler) PinStart(ctx context.Context, u tgbotapi.Update) {

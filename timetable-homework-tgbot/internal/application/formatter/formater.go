@@ -3,14 +3,22 @@ package formatter
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"timetable-homework-tgbot/internal/domain"
 )
 
 type Formatter struct {
 }
 
-func NewFormatter() *Formatter {
-	return &Formatter{}
+var instance *Formatter
+
+var once sync.Once
+
+func GetFormatter() *Formatter {
+	once.Do(func() {
+		instance = &Formatter{}
+	})
+	return instance
 }
 
 const telegramMaxLen = 4000

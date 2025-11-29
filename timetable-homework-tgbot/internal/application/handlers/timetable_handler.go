@@ -14,11 +14,11 @@ import (
 type TimetableHandler struct {
 	bot               *telegram.Bot
 	lessonsController controllers.LessonsController
-	formatter         formatter.Formatter
+	formatter         *formatter.Formatter
 }
 
 func NewTimetableHandler(bot *telegram.Bot, lessonCtl controllers.LessonsController) *TimetableHandler {
-	return &TimetableHandler{bot: bot, lessonsController: lessonCtl, formatter: *formatter.NewFormatter()}
+	return &TimetableHandler{bot: bot, lessonsController: lessonCtl, formatter: formatter.GetFormatter()}
 }
 
 func (h *TimetableHandler) ShowMenu(ctx context.Context, u tgbotapi.Update) {

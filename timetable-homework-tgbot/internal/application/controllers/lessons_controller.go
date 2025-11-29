@@ -17,11 +17,11 @@ type LessonsController interface {
 type lessonsController struct {
 	auth        AuthController
 	lessonsRepo repositories.LessonsRepository
-	formatter   formatter.Formatter
+	formatter   *formatter.Formatter
 }
 
 func NewLessonController(lessonsRepo repositories.LessonsRepository, userRepo repositories.UsersRepository, controller AuthController) LessonsController {
-	return &lessonsController{lessonsRepo: lessonsRepo, auth: controller, formatter: *formatter.NewFormatter()}
+	return &lessonsController{lessonsRepo: lessonsRepo, auth: controller, formatter: formatter.GetFormatter()}
 }
 
 func (l *lessonsController) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
