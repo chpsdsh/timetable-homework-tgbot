@@ -11,18 +11,19 @@ import (
 )
 
 type CommandHandler struct {
-	auth controllers.AuthController
-	bot  *telegram.Bot
+	auth     controllers.AuthController
+	bot      *telegram.Bot
+	keyboard *telegram.KeyboardController
 }
 
 func NewCommandHandler(auth controllers.AuthController, bot *telegram.Bot) *CommandHandler {
-	return &CommandHandler{auth: auth, bot: bot}
+	return &CommandHandler{auth: auth, bot: bot, keyboard: telegram.GetKeyboardController()}
 }
 
 func (h *CommandHandler) Start(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	msg := tgbotapi.NewMessage(chatID, "Хотите присоединиться к своей группе в НГУ?")
-	msg.ReplyMarkup = telegram.KBAskJoin()
+	msg.ReplyMarkup = h.keyboard.KBAskJoin()
 	_ = h.bot.SendWithRetry(msg)
 }
 
@@ -30,7 +31,7 @@ func (h *CommandHandler) Join(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	joined, _ := h.auth.EnsureJoined(ctx, userID)
 	if joined {
-		_ = h.bot.Send(chatID, "Ты уже присоединён к группе.", telegram.KBMember())
+		_ = h.bot.Send(chatID, "Ты уже присоединён к группе.", h.keyboard.KBMember())
 		return
 	}
 	h.bot.GetState().Set(chatID, telegram.StateWaitUserGroup)
@@ -43,7 +44,7 @@ func (h *CommandHandler) Leave(ctx context.Context, u tgbotapi.Update) {
 	if err := h.auth.LeaveGroup(ctx, userID); err != nil {
 		log.Printf("leave failed: %v", err)
 	}
-	_ = h.bot.Send(chatID, "Вы отсоединены от группы.", telegram.KBGuest())
+	_ = h.bot.Send(chatID, "Вы отсоединены от группы.", h.keyboard.KBGuest())
 }
 
 func (h *CommandHandler) WaitUserGroup(ctx context.Context, u tgbotapi.Update) {
@@ -52,23 +53,23 @@ func (h *CommandHandler) WaitUserGroup(ctx context.Context, u tgbotapi.Update) {
 	group := strings.TrimSpace(m.Text)
 
 	if group == "" {
-		_ = h.bot.Send(chatID, "Пусто. Введи номер своей группы (например, 23204).", telegram.KBMember())
+		_ = h.bot.Send(chatID, "Пусто. Введи номер своей группы (например, 23204).", h.keyboard.KBMember())
 		return
 	}
 
 	if err := h.auth.JoinGroup(ctx, userID, group); err != nil {
 		log.Printf("JoinGroup failed: %v", err)
 		h.bot.GetState().Del(chatID)
-		_ = h.bot.Send(chatID, "Не удалось присоединиться. Проверь номер группы и попробуй ещё раз.", telegram.KBGuest())
+		_ = h.bot.Send(chatID, "Не удалось присоединиться. Проверь номер группы и попробуй ещё раз.", h.keyboard.KBGuest())
 		return
 	}
 
 	h.bot.GetState().Del(chatID)
-	_ = h.bot.Send(chatID, "Группа сохранена: "+group, telegram.KBMember())
+	_ = h.bot.Send(chatID, "Группа сохранена: "+group, h.keyboard.KBMember())
 }
 
 func (h *CommandHandler) Skip(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	h.bot.GetState().Del(chatID)
-	_ = h.bot.Send(chatID, "Ок, продолжим без привязки.", telegram.KBGuest())
+	_ = h.bot.Send(chatID, "Ок, продолжим без привязки.", h.keyboard.KBGuest())
 }

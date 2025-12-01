@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"timetable-homework-tgbot/internal/domain"
@@ -29,7 +30,21 @@ const (
 	BtnNotDelete                  = "Не удалять"
 )
 
-func KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
+type KeyboardController struct {
+}
+
+var instance *KeyboardController
+
+var once sync.Once
+
+func GetKeyboardController() *KeyboardController {
+	once.Do(func() {
+		instance = &KeyboardController{}
+	})
+	return instance
+}
+
+func (k *KeyboardController) KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnJoin),
@@ -40,7 +55,7 @@ func KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBMember() tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBMember() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnShowTimeTable),
@@ -66,7 +81,7 @@ func KBMember() tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBGuest() tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBGuest() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnShowTimeTable),
@@ -77,7 +92,7 @@ func KBGuest() tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBChooseTimetable() tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBChooseTimetable() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnGroup),
@@ -89,7 +104,7 @@ func KBChooseTimetable() tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBDays(days []string) tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBDays(days []string) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(days))
 	for _, d := range days {
 		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(d)))
@@ -99,7 +114,7 @@ func KBDays(days []string) tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBLessons(list []domain.LessonBrief) tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBLessons(list []domain.LessonBrief) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
 	for _, l := range list {
 		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(fmt.Sprintf("%s - %s", l.Title, l.LessonType))))
@@ -109,7 +124,7 @@ func KBLessons(list []domain.LessonBrief) tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBHomeworks(list []domain.HWBrief) tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBHomeworks(list []domain.HWBrief) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
 	for _, h := range list {
 		label := fmt.Sprintf("%s : %s", h.Subject, h.HomeworkText)
@@ -120,7 +135,7 @@ func KBHomeworks(list []domain.HWBrief) tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBNotifications(list []domain.Notification) tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBNotifications(list []domain.Notification) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
 
 	for _, n := range list {
@@ -142,7 +157,7 @@ func KBNotifications(list []domain.Notification) tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBWeekdays(today time.Time) tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBWeekdays(today time.Time) tgbotapi.ReplyKeyboardMarkup {
 	const days = 8
 
 	rows := make([][]tgbotapi.KeyboardButton, 0)
@@ -165,7 +180,7 @@ func KBWeekdays(today time.Time) tgbotapi.ReplyKeyboardMarkup {
 	return kb
 }
 
-func KBConfirmDelete() tgbotapi.ReplyKeyboardMarkup {
+func (k *KeyboardController) KBConfirmDelete() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnDelete),

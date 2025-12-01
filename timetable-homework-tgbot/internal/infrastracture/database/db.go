@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"time"
+	httpparser "timetable-homework-tgbot/internal/infrastracture/parser"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type DB struct {
-	sql *sql.DB
+	sql    *sql.DB
+	parser *httpparser.Parser
 }
 
 func NewDB(ctx context.Context) (*DB, error) {
@@ -36,7 +38,7 @@ func NewDB(ctx context.Context) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{sql: db}, nil
+	return &DB{sql: db, parser: httpparser.GetParser()}, nil
 }
 
 func (d *DB) GetSql() *sql.DB {

@@ -92,7 +92,7 @@ func (b *Bot) handleMessage(parent context.Context, upd tgbotapi.Update) {
 	text := strings.TrimSpace(m.Text)
 
 	if st := b.state.Get(chatID); st != "" && !m.IsCommand() {
-		if h, ok := matchState(b.router, st); ok {
+		if h, ok := b.router.matchState(st); ok {
 			h(ctx, upd)
 			return
 		}

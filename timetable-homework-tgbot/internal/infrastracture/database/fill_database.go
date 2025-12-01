@@ -7,8 +7,6 @@ import (
 	"sync"
 	"timetable-homework-tgbot/internal/domain/lesson"
 	"timetable-homework-tgbot/internal/domain/urlselector"
-
-	httpparser "timetable-homework-tgbot/internal/infrastracture/parser"
 )
 
 const workers = 40
@@ -36,10 +34,10 @@ func (d *DB) FillDatabase() error {
 }
 
 func (d *DB) fillGroupsParallel(ctx context.Context) error {
-	faculties := httpparser.ParseFaculties()
+	faculties := d.parser.ParseFaculties()
 	var allGroups []urlselector.Group
 	for _, faculty := range faculties {
-		groups := httpparser.ParseGroups(faculty.FullUrl)
+		groups := d.parser.ParseGroups(faculty.FullUrl)
 		allGroups = append(allGroups, groups...)
 	}
 	jobs := make(chan urlselector.Group, workers)
@@ -52,7 +50,7 @@ func (d *DB) fillGroupsParallel(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for g := range jobs {
-				lessons := httpparser.ParseLessonsStudent(g.GroupUrl)
+				lessons := d.parser.ParseLessonsStudent(g.GroupUrl)
 				if err := d.fillGroupSchedule(ctx, g.GroupName, lessons); err != nil {
 					select {
 					case errCh <- fmt.Errorf("fill group schedule %s: %w", g.GroupName, err):
@@ -80,7 +78,7 @@ func (d *DB) fillGroupsParallel(ctx context.Context) error {
 }
 
 func (d *DB) fillTeachersParallel(ctx context.Context) error {
-	teachers := httpparser.ParseTeachers()
+	teachers := d.parser.ParseTeachers()
 
 	jobs := make(chan urlselector.Teacher, workers)
 	errCh := make(chan error, 1)
@@ -92,7 +90,7 @@ func (d *DB) fillTeachersParallel(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for t := range jobs {
-				lessonsTeacher := httpparser.ParseLessonsTeacher(t.FullURL)
+				lessonsTeacher := d.parser.ParseLessonsTeacher(t.FullURL)
 				if err := d.fillTeacherSchedule(ctx, t.FullName, lessonsTeacher); err != nil {
 					select {
 					case errCh <- fmt.Errorf("fill teacher schedule %s: %w", t.FullName, err):
@@ -119,7 +117,7 @@ func (d *DB) fillTeachersParallel(ctx context.Context) error {
 }
 
 func (d *DB) fillRoomsParallel(ctx context.Context) error {
-	rooms := httpparser.ParseRooms()
+	rooms := d.parser.ParseRooms()
 
 	jobs := make(chan urlselector.Room, workers)
 	errCh := make(chan error, 1)
@@ -131,7 +129,7 @@ func (d *DB) fillRoomsParallel(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for r := range jobs {
-				lessonsRoom := httpparser.ParseLessonsRoom(r.FllURL)
+				lessonsRoom := d.parser.ParseLessonsRoom(r.FllURL)
 				if err := d.fillRoomSchedule(ctx, r.Room, lessonsRoom); err != nil {
 					select {
 					case errCh <- fmt.Errorf("fill room schedule %s: %w", r.Room, err):

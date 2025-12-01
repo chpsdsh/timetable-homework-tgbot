@@ -3,12 +3,27 @@ package formatter
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"timetable-homework-tgbot/internal/domain"
 )
 
+type Formatter struct {
+}
+
+var instance *Formatter
+
+var once sync.Once
+
+func GetFormatter() *Formatter {
+	once.Do(func() {
+		instance = &Formatter{}
+	})
+	return instance
+}
+
 const telegramMaxLen = 4000
 
-func FormatTimetable(lessons []domain.LessonBrief) string {
+func (f *Formatter) FormatTimetable(lessons []domain.LessonBrief) string {
 	if len(lessons) == 0 {
 		return "расписание не найдено"
 	}
@@ -70,7 +85,7 @@ func FormatTimetable(lessons []domain.LessonBrief) string {
 	return res
 }
 
-func SplitForTelegram(text string) []string {
+func (f *Formatter) SplitForTelegram(text string) []string {
 	if len(text) <= telegramMaxLen {
 		return []string{text}
 	}
@@ -99,7 +114,7 @@ func SplitForTelegram(text string) []string {
 	return res
 }
 
-func FormatHomeworks(list []domain.HWBrief) string {
+func (f *Formatter) FormatHomeworks(list []domain.HWBrief) string {
 	if len(list) == 0 {
 		return "Домашек нет"
 	}

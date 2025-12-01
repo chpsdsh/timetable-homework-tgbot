@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"timetable-homework-tgbot/internal/domain/lesson"
 	"timetable-homework-tgbot/internal/domain/urlselector"
 
@@ -18,7 +19,21 @@ const (
 	nsuPage       = "https://table.nsu.ru"
 )
 
-func ParseLessonsStudent(groupUrl string) []lesson.LessonStudent {
+type Parser struct {
+}
+
+var instance *Parser
+
+var once sync.Once
+
+func GetParser() *Parser {
+	once.Do(func() {
+		instance = &Parser{}
+	})
+	return instance
+}
+
+func (p *Parser) ParseLessonsStudent(groupUrl string) []lesson.LessonStudent {
 	page := nsuPage + groupUrl
 	resp, err := http.Get(page)
 	if err != nil {
@@ -83,7 +98,7 @@ func abs(base, href string) string {
 	return bu.ResolveReference(ru).String()
 }
 
-func ParseTeachers() []urlselector.Teacher {
+func (p *Parser) ParseTeachers() []urlselector.Teacher {
 	teachers := make([]urlselector.Teacher, 0)
 	resp, err := http.Get(teachersPage)
 	if err != nil {
@@ -106,7 +121,7 @@ func ParseTeachers() []urlselector.Teacher {
 	return teachers
 }
 
-func ParseRooms() []urlselector.Room {
+func (p *Parser) ParseRooms() []urlselector.Room {
 	rooms := make([]urlselector.Room, 0)
 	resp, err := http.Get(roomPage)
 	if err != nil {
@@ -126,7 +141,7 @@ func ParseRooms() []urlselector.Room {
 	return rooms
 }
 
-func ParseFaculties() []urlselector.Faculty {
+func (p *Parser) ParseFaculties() []urlselector.Faculty {
 	faculties := make([]urlselector.Faculty, 0)
 	resp, err := http.Get(facultiesPage)
 	if err != nil {
@@ -146,7 +161,7 @@ func ParseFaculties() []urlselector.Faculty {
 	return faculties
 }
 
-func ParseGroups(facultyURL string) []urlselector.Group {
+func (p *Parser) ParseGroups(facultyURL string) []urlselector.Group {
 	groups := make([]urlselector.Group, 0)
 	seen := make(map[string]struct{})
 
@@ -181,7 +196,7 @@ func ParseGroups(facultyURL string) []urlselector.Group {
 	return groups
 }
 
-func ParseLessonsTeacher(url string) []lesson.LessonTeacher {
+func (p *Parser) ParseLessonsTeacher(url string) []lesson.LessonTeacher {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Println(err)
@@ -244,7 +259,7 @@ func ParseLessonsTeacher(url string) []lesson.LessonTeacher {
 	return lessons
 }
 
-func ParseLessonsRoom(url string) []lesson.LessonRoom {
+func (p *Parser) ParseLessonsRoom(url string) []lesson.LessonRoom {
 	resp, err := http.Get(url)
 	if err != nil {
 		panic(err)
