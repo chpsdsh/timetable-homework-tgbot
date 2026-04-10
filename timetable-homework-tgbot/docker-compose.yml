@@ -1,16 +1,21 @@
 version: "3.9"
+
 services:
   postgres:
-    image: postgres:16
-    container_name: timetable_pg
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    image: postgres:18
+    container_name: postgres_db
+
+    restart: always
+
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
+
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
 volumes:
-  pg_data:
+  pgdata:

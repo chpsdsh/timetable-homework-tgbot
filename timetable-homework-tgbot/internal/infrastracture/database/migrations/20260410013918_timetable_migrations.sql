@@ -1,0 +1,128 @@
+-- +goose Up
+SELECT 'up SQL query';
+
+CREATE TABLE IF NOT EXISTS users
+(
+    tg_id BIGINT PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS groups
+(
+    id         BIGSERIAL PRIMARY KEY,
+    group_name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS students
+(
+    id       BIGSERIAL PRIMARY KEY,
+    user_id  BIGINT NOT NULL UNIQUE,
+    group_id BIGINT NOT NULL,
+    CONSTRAINT fk_students_user
+        FOREIGN KEY (user_id) REFERENCES users (tg_id)
+            ON DELETE CASCADE,
+    CONSTRAINT fk_students_group
+        FOREIGN KEY (group_id) REFERENCES groups (id)
+            ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS teachers
+(
+    id      BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,
+    CONSTRAINT fk_teachers_user
+        FOREIGN KEY (user_id) REFERENCES users (tg_id)
+            ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS auditoriums
+(
+    id        BIGSERIAL PRIMARY KEY,
+    room_name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS lessons
+(
+    id          BIGSERIAL PRIMARY KEY,
+    subject     TEXT     NOT NULL,
+    lesson_type TEXT,
+    weekday     SMALLINT NOT NULL CHECK (weekday BETWEEN 1 AND 7),
+    start_time  TIME     NOT NULL,
+    week        SMALLINT CHECK (week IN (1, 2) OR week IS NULL),
+    group_id    BIGINT   NOT NULL,
+    teacher_id  BIGINT   NOT NULL,
+    room_id     BIGINT   NOT NULL,
+    CONSTRAINT fk_lessons_group
+        FOREIGN KEY (group_id) REFERENCES groups (id)
+            ON DELETE CASCADE,
+    CONSTRAINT fk_lessons_teacher
+        FOREIGN KEY (teacher_id) REFERENCES teachers (id)
+            ON DELETE CASCADE,
+    CONSTRAINT fk_lessons_room
+        FOREIGN KEY (room_id) REFERENCES auditoriums (id)
+            ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS homeworks
+(
+    id     BIGSERIAL PRIMARY KEY,
+    text   TEXT NOT NULL,
+    status TEXT
+);
+
+CREATE TABLE IF NOT EXISTS group_homeworks
+(
+    group_id    BIGINT NOT NULL,
+    homework_id BIGINT NOT NULL,
+    PRIMARY KEY (group_id, homework_id),
+    CONSTRAINT fk_group_homeworks_group
+        FOREIGN KEY (group_id) REFERENCES groups (id)
+            ON DELETE CASCADE,
+    CONSTRAINT fk_group_homeworks_homework
+        FOREIGN KEY (homework_id) REFERENCES homeworks (id)
+            ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notifications
+(
+    id          BIGSERIAL PRIMARY KEY,
+    "timestamp" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    user_id     BIGINT      NOT NULL,
+    homework_id BIGINT      NOT NULL,
+    CONSTRAINT fk_notifications_user
+        FOREIGN KEY (user_id) REFERENCES users (tg_id)
+            ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_homework
+        FOREIGN KEY (homework_id) REFERENCES homeworks (id)
+            ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_students_group_id
+    ON students (group_id);
+
+CREATE INDEX IF NOT EXISTS idx_lessons_group_id
+    ON lessons (group_id);
+
+CREATE INDEX IF NOT EXISTS idx_lessons_teacher_id
+    ON lessons (teacher_id);
+
+CREATE INDEX IF NOT EXISTS idx_lessons_room_id
+    ON lessons (room_id);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id
+    ON notifications (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_homework_id
+    ON notifications (homework_id);
+
+-- +goose Down
+SELECT 'down SQL query';
+
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS group_homeworks CASCADE;
+DROP TABLE IF EXISTS homeworks CASCADE;
+DROP TABLE IF EXISTS lessons CASCADE;
+DROP TABLE IF EXISTS auditoriums CASCADE;
+DROP TABLE IF EXISTS teachers CASCADE;
+DROP TABLE IF EXISTS students CASCADE;
+DROP TABLE IF EXISTS groups CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
