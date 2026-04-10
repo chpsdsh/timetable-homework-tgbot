@@ -48,17 +48,26 @@ CREATE TABLE IF NOT EXISTS lessons
     weekday     SMALLINT NOT NULL CHECK (weekday BETWEEN 1 AND 7),
     start_time  TIME     NOT NULL,
     week        SMALLINT CHECK (week IN (1, 2) OR week IS NULL),
-    group_id    BIGINT   NOT NULL,
     teacher_id  BIGINT   NOT NULL,
     room_id     BIGINT   NOT NULL,
-    CONSTRAINT fk_lessons_group
-        FOREIGN KEY (group_id) REFERENCES groups (id)
-            ON DELETE CASCADE,
     CONSTRAINT fk_lessons_teacher
         FOREIGN KEY (teacher_id) REFERENCES teachers (id)
             ON DELETE CASCADE,
     CONSTRAINT fk_lessons_room
         FOREIGN KEY (room_id) REFERENCES auditoriums (id)
+            ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS lesson_groups
+(
+    lesson_id BIGINT NOT NULL,
+    group_id  BIGINT NOT NULL,
+    PRIMARY KEY (lesson_id, group_id),
+    CONSTRAINT fk_lesson_groups_lesson
+        FOREIGN KEY (lesson_id) REFERENCES lessons (id)
+            ON DELETE CASCADE,
+    CONSTRAINT fk_lesson_groups_group
+        FOREIGN KEY (group_id) REFERENCES groups (id)
             ON DELETE CASCADE
 );
 
@@ -99,8 +108,8 @@ CREATE TABLE IF NOT EXISTS notifications
 CREATE INDEX IF NOT EXISTS idx_students_group_id
     ON students (group_id);
 
-CREATE INDEX IF NOT EXISTS idx_lessons_group_id
-    ON lessons (group_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_groups_group_id
+    ON lesson_groups (group_id);
 
 CREATE INDEX IF NOT EXISTS idx_lessons_teacher_id
     ON lessons (teacher_id);
@@ -120,6 +129,7 @@ SELECT 'down SQL query';
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS group_homeworks CASCADE;
 DROP TABLE IF EXISTS homeworks CASCADE;
+DROP TABLE IF EXISTS lesson_groups CASCADE;
 DROP TABLE IF EXISTS lessons CASCADE;
 DROP TABLE IF EXISTS auditoriums CASCADE;
 DROP TABLE IF EXISTS teachers CASCADE;
