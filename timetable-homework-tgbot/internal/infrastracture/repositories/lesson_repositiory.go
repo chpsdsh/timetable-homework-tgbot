@@ -31,215 +31,87 @@ func NewLessonsRepo(db *database.DB) *LessonsRepo {
 func (r *LessonsRepo) GetLessonsGroup(ctx context.Context, group string) ([]domain.LessonBrief, error) {
 	const q = `
 SELECT
-    subject,
-    lesson_type,
-    tutor,
-    start_time,
-    weekday,
-    room,
-    week
-FROM group_schedule
-WHERE group_name = $1
-ORDER BY start_time;
+    l.subject,
+    l.lesson_type,
+    t.teacher_name,
+    l.start_time::text,
+    l.weekday,
+    a.room_name,
+    l.week,
+    string_agg(g2.group_name, ', ' ORDER BY g2.group_name) AS groups
+FROM lessons l
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+JOIN teachers t ON t.id = l.teacher_id
+JOIN auditoriums a ON a.id = l.room_id
+JOIN lesson_groups lg2 ON lg2.lesson_id = l.id
+JOIN groups g2 ON g2.id = lg2.group_id
+WHERE g.group_name = $1
+GROUP BY l.id, t.teacher_name, a.room_name
+ORDER BY l.weekday, l.start_time;
 `
-	log.Println("Querying group lessons :", group)
-	rows, err := r.db.GetSql().QueryContext(ctx, q, strings.TrimSpace(group))
-	if err != nil {
-		log.Println("Error querying group lessons :", err)
-		return nil, fmt.Errorf("GetLessonsGroup query: %w", err)
-	}
-	defer rows.Close()
-
-	var res []domain.LessonBrief
-
-	for rows.Next() {
-		var (
-			subject    string
-			lessonType sql.NullString
-			tutor      sql.NullString
-			startTime  string
-			weekday    string
-			room       sql.NullString
-			week       sql.NullString
-		)
-
-		if err := rows.Scan(
-			&subject,
-			&lessonType,
-			&tutor,
-			&startTime,
-			&weekday,
-			&room,
-			&week,
-		); err != nil {
-			return nil, fmt.Errorf("GetLessonsGroup scan: %w", err)
-		}
-
-		res = append(res, domain.LessonBrief{
-			Title:      subject,
-			LessonType: nullToString(lessonType),
-			Tutor:      nullToString(tutor),
-			StartTime:  startTime,
-			Weekday:    weekday,
-			Room:       nullToString(room),
-			Week:       nullToString(week),
-		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("GetLessonsGroup rows: %w", err)
-	}
-
-	return res, nil
+	log.Println("Querying group lessons:", group)
+	return r.queryLessons(ctx, q, strings.ReplaceAll(strings.TrimSpace(group), " ", ""))
 }
 
 func (r *LessonsRepo) GetLessonsTeacher(ctx context.Context, teacherFio string) ([]domain.LessonBrief, error) {
 	const q = `
 SELECT
-    subject,
-    lesson_type,
-    "groups",
-    start_time,
-    weekday,
-    room,
-    week
-FROM teacher_schedule
-WHERE teacher_fio = $1
-ORDER BY start_time;
+    l.subject,
+    l.lesson_type,
+    t.teacher_name,
+    l.start_time::text,
+    l.weekday,
+    a.room_name,
+    l.week,
+    string_agg(g.group_name, ', ' ORDER BY g.group_name) AS groups
+FROM lessons l
+JOIN teachers t ON t.id = l.teacher_id
+JOIN auditoriums a ON a.id = l.room_id
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+WHERE lower(t.teacher_name) = lower($1)
+GROUP BY l.id, t.teacher_name, a.room_name
+ORDER BY l.weekday, l.start_time;
 `
-
-	log.Println("Querying teacher lessons :", teacherFio)
-
-	rows, err := r.db.GetSql().QueryContext(ctx, q, teacherFio)
-	if err != nil {
-		return nil, fmt.Errorf("GetLessonsTeacher query: %w", err)
-	}
-	defer rows.Close()
-
-	var res []domain.LessonBrief
-
-	for rows.Next() {
-		var (
-			subject    string
-			lessonType sql.NullString
-			groups     string
-			startTime  string
-			weekday    string
-			room       sql.NullString
-			week       sql.NullString
-		)
-
-		if err := rows.Scan(
-			&subject,
-			&lessonType,
-			&groups,
-			&startTime,
-			&weekday,
-			&room,
-			&week,
-		); err != nil {
-			return nil, fmt.Errorf("GetLessonsTeacher scan: %w", err)
-		}
-
-		res = append(res, domain.LessonBrief{
-			Title:      subject,
-			LessonType: nullToString(lessonType),
-			Groups:     groups,
-			StartTime:  startTime,
-			Weekday:    weekday,
-			Room:       nullToString(room),
-			Week:       nullToString(week),
-		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("GetLessonsTeacher rows: %w", err)
-	}
-
-	return res, nil
+	log.Println("Querying teacher lessons:", teacherFio)
+	return r.queryLessons(ctx, q, strings.TrimSpace(teacherFio))
 }
 
 func (r *LessonsRepo) GetLessonsRoom(ctx context.Context, roomName string) ([]domain.LessonBrief, error) {
 	const q = `
 SELECT
-    subject,
-    lesson_type,
-    tutor,
-    start_time,
-    weekday,
-    "groups",
-    week
-FROM room_schedule
-WHERE room_name = $1
-ORDER BY start_time;
+    l.subject,
+    l.lesson_type,
+    t.teacher_name,
+    l.start_time::text,
+    l.weekday,
+    a.room_name,
+    l.week,
+    string_agg(g.group_name, ', ' ORDER BY g.group_name) AS groups
+FROM lessons l
+JOIN teachers t ON t.id = l.teacher_id
+JOIN auditoriums a ON a.id = l.room_id
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+WHERE a.room_name = $1
+GROUP BY l.id, t.teacher_name, a.room_name
+ORDER BY l.weekday, l.start_time;
 `
-
-	log.Println("Querying room lessons :", roomName)
-	rows, err := r.db.GetSql().QueryContext(ctx, q, roomName)
-	if err != nil {
-		return nil, fmt.Errorf("GetLessonsRoom query: %w", err)
-	}
-	defer rows.Close()
-
-	var res []domain.LessonBrief
-
-	for rows.Next() {
-		var (
-			subject    string
-			lessonType sql.NullString
-			tutor      sql.NullString
-			startTime  string
-			weekday    string
-			groups     string
-			week       sql.NullString
-		)
-
-		if err := rows.Scan(
-			&subject,
-			&lessonType,
-			&tutor,
-			&startTime,
-			&weekday,
-			&groups,
-			&week,
-		); err != nil {
-			return nil, fmt.Errorf("GetLessonsRoom scan: %w", err)
-		}
-
-		res = append(res, domain.LessonBrief{
-			Title:      subject,
-			LessonType: nullToString(lessonType),
-			Tutor:      nullToString(tutor),
-			StartTime:  startTime,
-			Weekday:    weekday,
-			Groups:     groups,
-			Week:       nullToString(week),
-		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("GetLessonsRoom rows: %w", err)
-	}
-
-	return res, nil
+	log.Println("Querying room lessons:", roomName)
+	return r.queryLessons(ctx, q, strings.TrimSpace(roomName))
 }
 
 func (r *LessonsRepo) GetDaysWithLessonsByGroup(ctx context.Context, group string) ([]string, error) {
 	const q = `
-SELECT weekday
-FROM group_schedule
-WHERE group_name = $1
-GROUP BY weekday
-ORDER BY CASE weekday
-    WHEN 'Понедельник' THEN 1
-    WHEN 'Вторник'     THEN 2
-    WHEN 'Среда'       THEN 3
-    WHEN 'Четверг'     THEN 4
-    WHEN 'Пятница'     THEN 5
-    WHEN 'Суббота'     THEN 6
-    ELSE 7
-END;
+SELECT l.weekday
+FROM lessons l
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+WHERE g.group_name = $1
+GROUP BY l.weekday
+ORDER BY l.weekday;
 `
-
 	rows, err := r.db.GetSql().QueryContext(ctx, q, group)
 	if err != nil {
 		return nil, fmt.Errorf("GetDaysWithLessonsByGroup query: %w", err)
@@ -248,11 +120,11 @@ END;
 
 	var res []string
 	for rows.Next() {
-		var day string
-		if err := rows.Scan(&day); err != nil {
+		var weekday int
+		if err := rows.Scan(&weekday); err != nil {
 			return nil, fmt.Errorf("GetDaysWithLessonsByGroup scan: %w", err)
 		}
-		res = append(res, day)
+		res = append(res, weekdayName(weekday))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("GetDaysWithLessonsByGroup rows: %w", err)
@@ -261,187 +133,116 @@ END;
 	return res, nil
 }
 
-func (r *LessonsRepo) LessonsByDayGroup(
-	ctx context.Context,
-	group, day string,
-) ([]domain.LessonBrief, error) {
+func (r *LessonsRepo) LessonsByDayGroup(ctx context.Context, group, day string) ([]domain.LessonBrief, error) {
 	const q = `
-SELECT subject, lesson_type, tutor, start_time, weekday, room, week
-FROM group_schedule
-WHERE group_name = $1
-  AND weekday   = $2
-ORDER BY start_time;
+SELECT
+    l.subject,
+    l.lesson_type,
+    t.teacher_name,
+    l.start_time::text,
+    l.weekday,
+    a.room_name,
+    l.week,
+    string_agg(g2.group_name, ', ' ORDER BY g2.group_name) AS groups
+FROM lessons l
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+JOIN teachers t ON t.id = l.teacher_id
+JOIN auditoriums a ON a.id = l.room_id
+JOIN lesson_groups lg2 ON lg2.lesson_id = l.id
+JOIN groups g2 ON g2.id = lg2.group_id
+WHERE g.group_name = $1
+  AND l.weekday = $2
+GROUP BY l.id, t.teacher_name, a.room_name
+ORDER BY l.start_time;
 `
+	return r.queryLessons(ctx, q, group, weekdayNumber(day))
+}
 
-	rows, err := r.db.GetSql().QueryContext(ctx, q, group, day)
+func (r *LessonsRepo) LessonsByDayTeacher(ctx context.Context, teacherFio, day string) ([]domain.LessonBrief, error) {
+	const q = `
+SELECT
+    l.subject,
+    l.lesson_type,
+    t.teacher_name,
+    l.start_time::text,
+    l.weekday,
+    a.room_name,
+    l.week,
+    string_agg(g.group_name, ', ' ORDER BY g.group_name) AS groups
+FROM lessons l
+JOIN teachers t ON t.id = l.teacher_id
+JOIN auditoriums a ON a.id = l.room_id
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+WHERE lower(t.teacher_name) = lower($1)
+  AND l.weekday = $2
+GROUP BY l.id, t.teacher_name, a.room_name
+ORDER BY l.start_time;
+`
+	return r.queryLessons(ctx, q, teacherFio, weekdayNumber(day))
+}
+
+func (r *LessonsRepo) LessonsByDayRoom(ctx context.Context, roomName, day string) ([]domain.LessonBrief, error) {
+	const q = `
+SELECT
+    l.subject,
+    l.lesson_type,
+    t.teacher_name,
+    l.start_time::text,
+    l.weekday,
+    a.room_name,
+    l.week,
+    string_agg(g.group_name, ', ' ORDER BY g.group_name) AS groups
+FROM lessons l
+JOIN teachers t ON t.id = l.teacher_id
+JOIN auditoriums a ON a.id = l.room_id
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+WHERE a.room_name = $1
+  AND l.weekday = $2
+GROUP BY l.id, t.teacher_name, a.room_name
+ORDER BY l.start_time;
+`
+	return r.queryLessons(ctx, q, roomName, weekdayNumber(day))
+}
+
+func (r *LessonsRepo) queryLessons(ctx context.Context, query string, args ...any) ([]domain.LessonBrief, error) {
+	rows, err := r.db.GetSql().QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("LessonsByDayGroup query: %w", err)
+		return nil, fmt.Errorf("query lessons: %w", err)
 	}
 	defer rows.Close()
 
 	var res []domain.LessonBrief
-
 	for rows.Next() {
 		var (
 			subject    string
 			lessonType sql.NullString
 			tutor      sql.NullString
 			startTime  string
-			weekday    string
+			weekday    int
 			room       sql.NullString
-			week       sql.NullString
+			week       sql.NullInt64
+			groups     sql.NullString
 		)
-
-		if err := rows.Scan(
-			&subject,
-			&lessonType,
-			&tutor,
-			&startTime,
-			&weekday,
-			&room,
-			&week,
-		); err != nil {
-			return nil, fmt.Errorf("LessonsByDayGroup scan: %w", err)
+		if err := rows.Scan(&subject, &lessonType, &tutor, &startTime, &weekday, &room, &week, &groups); err != nil {
+			return nil, fmt.Errorf("scan lessons: %w", err)
 		}
 
 		res = append(res, domain.LessonBrief{
 			Title:      subject,
 			LessonType: nullToString(lessonType),
 			Tutor:      nullToString(tutor),
-			StartTime:  startTime,
-			Weekday:    weekday,
+			StartTime:  trimTime(startTime),
+			Weekday:    weekdayName(weekday),
 			Room:       nullToString(room),
-			Groups:     group,
-			Week:       nullToString(week),
+			Groups:     nullToString(groups),
+			Week:       nullIntToString(week),
 		})
 	}
-
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("LessonsByDayGroup rows: %w", err)
-	}
-
-	return res, nil
-}
-
-func (r *LessonsRepo) LessonsByDayTeacher(
-	ctx context.Context,
-	teacherFio, day string,
-) ([]domain.LessonBrief, error) {
-	const q = `
-SELECT subject, lesson_type, "groups", start_time, weekday, room, week
-FROM teacher_schedule
-WHERE teacher_fio = $1
-  AND weekday     = $2
-ORDER BY start_time;
-`
-
-	rows, err := r.db.GetSql().QueryContext(ctx, q, teacherFio, day)
-	if err != nil {
-		return nil, fmt.Errorf("LessonsByDayTeacher query: %w", err)
-	}
-	defer rows.Close()
-
-	var res []domain.LessonBrief
-
-	for rows.Next() {
-		var (
-			subject    string
-			lessonType sql.NullString
-			groups     string
-			startTime  string
-			weekday    string
-			room       sql.NullString
-			week       sql.NullString
-		)
-
-		if err := rows.Scan(
-			&subject,
-			&lessonType,
-			&groups,
-			&startTime,
-			&weekday,
-			&room,
-			&week,
-		); err != nil {
-			return nil, fmt.Errorf("LessonsByDayTeacher scan: %w", err)
-		}
-
-		res = append(res, domain.LessonBrief{
-			Title:      subject,
-			LessonType: nullToString(lessonType),
-			Tutor:      teacherFio,
-			StartTime:  startTime,
-			Weekday:    weekday,
-			Room:       nullToString(room),
-			Groups:     groups,
-			Week:       nullToString(week),
-		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("LessonsByDayTeacher rows: %w", err)
-	}
-
-	return res, nil
-}
-
-func (r *LessonsRepo) LessonsByDayRoom(
-	ctx context.Context,
-	roomName, day string,
-) ([]domain.LessonBrief, error) {
-	const q = `
-SELECT subject, lesson_type, tutor, start_time, weekday, "groups", week
-FROM room_schedule
-WHERE room_name = $1
-  AND weekday   = $2
-ORDER BY start_time;
-`
-
-	rows, err := r.db.GetSql().QueryContext(ctx, q, roomName, day)
-	if err != nil {
-		return nil, fmt.Errorf("LessonsByDayRoom query: %w", err)
-	}
-	defer rows.Close()
-
-	var res []domain.LessonBrief
-
-	for rows.Next() {
-		var (
-			subject    string
-			lessonType sql.NullString
-			tutor      sql.NullString
-			startTime  string
-			weekday    string
-			groups     string
-			week       sql.NullString
-		)
-
-		if err := rows.Scan(
-			&subject,
-			&lessonType,
-			&tutor,
-			&startTime,
-			&weekday,
-			&groups,
-			&week,
-		); err != nil {
-			return nil, fmt.Errorf("LessonsByDayRoom scan: %w", err)
-		}
-
-		res = append(res, domain.LessonBrief{
-			Title:      subject,
-			LessonType: nullToString(lessonType),
-			Tutor:      nullToString(tutor),
-			StartTime:  startTime,
-			Weekday:    weekday,
-			Room:       roomName,
-			Groups:     groups,
-			Week:       nullToString(week),
-		})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("LessonsByDayRoom rows: %w", err)
+		return nil, fmt.Errorf("lessons rows: %w", err)
 	}
 
 	return res, nil
@@ -452,4 +253,57 @@ func nullToString(ns sql.NullString) string {
 		return ns.String
 	}
 	return ""
+}
+
+func nullIntToString(ni sql.NullInt64) string {
+	if ni.Valid {
+		return fmt.Sprintf("%d", ni.Int64)
+	}
+	return ""
+}
+
+func weekdayNumber(day string) int {
+	switch strings.TrimSpace(day) {
+	case "Понедельник":
+		return 1
+	case "Вторник":
+		return 2
+	case "Среда":
+		return 3
+	case "Четверг":
+		return 4
+	case "Пятница":
+		return 5
+	case "Суббота":
+		return 6
+	case "Воскресенье":
+		return 7
+	default:
+		return 0
+	}
+}
+
+func weekdayName(day int) string {
+	switch day {
+	case 1:
+		return "Понедельник"
+	case 2:
+		return "Вторник"
+	case 3:
+		return "Среда"
+	case 4:
+		return "Четверг"
+	case 5:
+		return "Пятница"
+	case 6:
+		return "Суббота"
+	case 7:
+		return "Воскресенье"
+	default:
+		return ""
+	}
+}
+
+func trimTime(s string) string {
+	return strings.TrimSuffix(s, ":00")
 }

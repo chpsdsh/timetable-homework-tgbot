@@ -20,12 +20,14 @@ const (
 	BtnDeleteHomeworks            = "Удалить домашнее задание"
 	BtnUpdateHomeworkStatus       = "Отметить домашку сделанной"
 	StateWaitHomeworkUpdateChoose = "Выбрать домашку чтобы пометить сделанной"
-	BtnLeave                      = "Отсоедениться от группы"
+	BtnLeave                      = "Выйти из аккаунта"
 	BtnGroup                      = "Группы"
 	BtnTeacher                    = "Преподаватели"
 	BtnClassRoom                  = "Аудитории"
-	BtnJoin                       = "Присоединиться к группе"
-	BtnSkip                       = "Не присоединяться к группе"
+	BtnRegisterStudent            = "Войти как студент"
+	BtnRegisterTeacher            = "Войти как преподаватель"
+	BtnJoin                       = BtnRegisterStudent
+	BtnSkip                       = "Продолжить без входа"
 	BtnDelete                     = "Удалить"
 	BtnNotDelete                  = "Не удалять"
 )
@@ -47,7 +49,10 @@ func GetKeyboardController() *KeyboardController {
 func (k *KeyboardController) KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(BtnJoin),
+			tgbotapi.NewKeyboardButton(BtnRegisterStudent),
+			tgbotapi.NewKeyboardButton(BtnRegisterTeacher),
+		),
+		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnSkip),
 		),
 	)
@@ -56,22 +61,38 @@ func (k *KeyboardController) KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
 }
 
 func (k *KeyboardController) KBMember() tgbotapi.ReplyKeyboardMarkup {
+	return k.KBStudent()
+}
+
+func (k *KeyboardController) KBStudent() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnShowTimeTable),
-			tgbotapi.NewKeyboardButton(BtnPinHW),
-		),
-		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnWatchHomeworks),
-			tgbotapi.NewKeyboardButton(BtnChangeHW),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnConfReminder),
 			tgbotapi.NewKeyboardButton(BtnDeleteNotification),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(BtnDeleteHomeworks),
 			tgbotapi.NewKeyboardButton(BtnUpdateHomeworkStatus),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnLeave),
+		),
+	)
+	kb.ResizeKeyboard = true
+	return kb
+}
+
+func (k *KeyboardController) KBTeacher() tgbotapi.ReplyKeyboardMarkup {
+	kb := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnShowTimeTable),
+			tgbotapi.NewKeyboardButton(BtnPinHW),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnDeleteHomeworks),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnLeave),
@@ -85,8 +106,9 @@ func (k *KeyboardController) KBGuest() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnShowTimeTable),
-			tgbotapi.NewKeyboardButton(BtnJoin),
+			tgbotapi.NewKeyboardButton(BtnRegisterStudent),
 		),
+		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(BtnRegisterTeacher)),
 	)
 	kb.ResizeKeyboard = true
 	return kb
@@ -127,7 +149,7 @@ func (k *KeyboardController) KBLessons(list []domain.LessonBrief) tgbotapi.Reply
 func (k *KeyboardController) KBHomeworks(list []domain.HWBrief) tgbotapi.ReplyKeyboardMarkup {
 	rows := make([][]tgbotapi.KeyboardButton, 0, len(list))
 	for _, h := range list {
-		label := fmt.Sprintf("%s : %s", h.Subject, h.HomeworkText)
+		label := fmt.Sprintf("#%d : %s", h.ID, h.HomeworkText)
 		rows = append(rows, tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(label)))
 	}
 	kb := tgbotapi.NewReplyKeyboard(rows...)
@@ -140,8 +162,8 @@ func (k *KeyboardController) KBNotifications(list []domain.Notification) tgbotap
 
 	for _, n := range list {
 		label := fmt.Sprintf(
-			"%s — %s",
-			n.Subject,
+			"#%d — %s",
+			n.HomeworkID,
 			n.Timestamp.Format("02.01.2006 15:04"),
 		)
 

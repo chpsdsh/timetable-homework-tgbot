@@ -3,13 +3,18 @@ package database
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
 	"os"
 	"time"
 	httpparser "timetable-homework-tgbot/internal/infrastracture/parser"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 )
+
+//go:embed migrations/*.sql
+var migrations embed.FS
 
 type DB struct {
 	sql    *sql.DB
@@ -52,95 +57,10 @@ func (d *DB) Close() error {
 	return d.sql.Close()
 }
 
-func (d *DB) InitSchema(ctx context.Context) error {
-	const schema = `
--- Пользователи
-CREATE TABLE IF NOT EXISTS users (
-  tg_id   BIGINT PRIMARY KEY,     
-  "group" TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_users_group ON users("group");
-
--- Домашки
-CREATE TABLE IF NOT EXISTS homeworks (
-  id_user       BIGINT NOT NULL,
-  subject       TEXT  NOT NULL,
-  homework_text TEXT  NOT NULL,
-  status        TEXT  NOT NULL DEFAULT 'new',
-
-  CONSTRAINT fk_homeworks_user
-    FOREIGN KEY (id_user) REFERENCES users(tg_id) ON DELETE CASCADE,
-
-  -- один пользователь — одна домашка на один subject
-  CONSTRAINT pk_homeworks PRIMARY KEY (id_user, subject)
-);
-
-
-CREATE INDEX IF NOT EXISTS idx_hw_user   ON homeworks(id_user);
-
--- Уведомления по домашкам
-CREATE TABLE IF NOT EXISTS notifications (
-  user_id  BIGINT NOT NULL,
-  subject  TEXT   NOT NULL,
-  ts       TIMESTAMPTZ NOT NULL,
-
-  CONSTRAINT fk_notifications_user
-    FOREIGN KEY (user_id) REFERENCES users(tg_id) ON DELETE CASCADE
-
-);
-
-CREATE INDEX IF NOT EXISTS idx_notif_user_ts ON notifications(user_id, ts);
-
--- Расписание групп
-CREATE TABLE IF NOT EXISTS group_schedule (
-  group_name  TEXT NOT NULL,
-  subject     TEXT NOT NULL,
-  lesson_type TEXT,
-  tutor       TEXT,
-  start_time  TIME NOT NULL,
-  weekday     TEXT NOT NULL CHECK (weekday IN
-               ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
-  room        TEXT,
-  week        TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_group_sched_lookup
-  ON group_schedule(group_name, weekday, start_time);
-
--- Расписание преподавателей
-CREATE TABLE IF NOT EXISTS teacher_schedule (
-  teacher_fio TEXT NOT NULL,
-  subject     TEXT NOT NULL,
-  lesson_type TEXT,
-  "groups"    TEXT[] NOT NULL,
-  start_time  TIME NOT NULL,
-  weekday     TEXT NOT NULL CHECK (weekday IN
-               ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
-  room        TEXT,
-  week        TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_teacher_sched_lookup
-  ON teacher_schedule(teacher_fio, weekday, start_time);
-
--- Расписание аудиторий
-CREATE TABLE IF NOT EXISTS room_schedule (
-  room_name   TEXT NOT NULL,
-  subject     TEXT NOT NULL,
-  lesson_type TEXT,
-  tutor       TEXT,
-  start_time  TIME NOT NULL,
-  weekday     TEXT NOT NULL CHECK (weekday IN
-               ('Понедельник','Вторник','Среда','Четверг','Пятница','Суббота')),
-  "groups"    TEXT[],
-  week        TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_room_sched_lookup
-  ON room_schedule(room_name, weekday, start_time);
-`
-
-	_, err := d.sql.ExecContext(ctx, schema)
-	return err
+func (d *DB) Migrate(ctx context.Context) error {
+	goose.SetBaseFS(migrations)
+	if err := goose.SetDialect("postgres"); err != nil {
+		return err
+	}
+	return goose.UpContext(ctx, d.sql, "migrations")
 }

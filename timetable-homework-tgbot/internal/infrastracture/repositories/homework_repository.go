@@ -9,12 +9,13 @@ import (
 )
 
 type HomeworkRepository interface {
-	Save(ctx context.Context, userID int64, subject, text string) error
-	Update(ctx context.Context, userID int64, subject, newText string) error
-	UpdateStatus(ctx context.Context, userID int64, subject string) error
-	Delete(ctx context.Context, userID int64, subject string) error
-	ListForLastWeek(ctx context.Context, userID int64) ([]domain.HWBrief, error)
-	CheckExistence(ctx context.Context, userID int64, subject string) (bool, error)
+	SaveForGroup(ctx context.Context, group, subject, text string) error
+	Update(ctx context.Context, homeworkID int64, newText string) error
+	UpdateStatus(ctx context.Context, homeworkID int64) error
+	Delete(ctx context.Context, homeworkID int64) error
+	ListAll(ctx context.Context) ([]domain.HWBrief, error)
+	ListForUser(ctx context.Context, userID int64) ([]domain.HWBrief, error)
+	CheckExistence(ctx context.Context, userID, homeworkID int64) (bool, error)
 }
 
 type HomeworkRepo struct {
@@ -25,145 +26,149 @@ func NewHomeworkRepo(db *database.DB) *HomeworkRepo {
 	return &HomeworkRepo{db: db}
 }
 
-func (r *HomeworkRepo) Save(
-	ctx context.Context,
-	userID int64,
-	subject, text string,
-) error {
-	const q = `
-INSERT INTO homeworks (id_user, subject, homework_text,status)
-VALUES ($1, $2, $3, $4);
-`
-	_, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, text, "new")
+func (r *HomeworkRepo) SaveForGroup(ctx context.Context, group, subject, text string) error {
+	tx, err := r.db.GetSql().BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("Save homework exec: %w", err)
+		return fmt.Errorf("SaveForGroup begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var groupID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM groups WHERE group_name = $1`, group).Scan(&groupID); err != nil {
+		return fmt.Errorf("SaveForGroup group: %w", err)
 	}
 
-	return nil
+	var homeworkID int64
+	if err := tx.QueryRowContext(ctx, `
+INSERT INTO homeworks (text, status)
+VALUES ($1, $2)
+RETURNING id
+`, fmt.Sprintf("%s: %s", subject, text), "new").Scan(&homeworkID); err != nil {
+		return fmt.Errorf("SaveForGroup homework: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO group_homeworks (group_id, homework_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`, groupID, homeworkID); err != nil {
+		return fmt.Errorf("SaveForGroup link: %w", err)
+	}
+
+	return tx.Commit()
 }
 
-func (r *HomeworkRepo) Update(
-	ctx context.Context,
-	userID int64,
-	subject, newText string,
-) error {
-	const q = `
-UPDATE homeworks
-SET homework_text = $3
-WHERE subject = $2
-  AND id_user = $1;
-`
-	res, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, newText)
+func (r *HomeworkRepo) Update(ctx context.Context, homeworkID int64, newText string) error {
+	res, err := r.db.GetSql().ExecContext(ctx, `UPDATE homeworks SET text = $2 WHERE id = $1`, homeworkID, newText)
 	if err != nil {
 		return fmt.Errorf("Update homework exec: %w", err)
 	}
-
 	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
-		return fmt.Errorf("Update homework: not found (user=%d, subject=%s)", userID, subject)
+		return fmt.Errorf("Update homework: not found (id=%d)", homeworkID)
 	}
-
 	return nil
 }
 
-func (r *HomeworkRepo) ListForLastWeek(
-	ctx context.Context,
-	userID int64,
-) ([]domain.HWBrief, error) {
-
+func (r *HomeworkRepo) ListForUser(ctx context.Context, userID int64) ([]domain.HWBrief, error) {
 	const q = `
-SELECT h.subject, h.homework_text, h.status
+SELECT h.id, h.text, COALESCE(h.status, '')
 FROM homeworks h
-WHERE h.id_user = $1;
+JOIN group_homeworks gh ON gh.homework_id = h.id
+JOIN students s ON s.group_id = gh.group_id
+WHERE s.user_id = $1
+ORDER BY h.id DESC;
 `
-
 	rows, err := r.db.GetSql().QueryContext(ctx, q, userID)
 	if err != nil {
-		return nil, fmt.Errorf("ListForLastWeek query: %w", err)
+		return nil, fmt.Errorf("ListForUser query: %w", err)
 	}
 	defer rows.Close()
 
 	var res []domain.HWBrief
-
 	for rows.Next() {
-		var subj string
-		var text string
-		var status string
-
-		if err := rows.Scan(&subj, &text, &status); err != nil {
-			return nil, fmt.Errorf("ListForLastWeek scan: %w", err)
+		var hw domain.HWBrief
+		if err := rows.Scan(&hw.ID, &hw.HomeworkText, &hw.Status); err != nil {
+			return nil, fmt.Errorf("ListForUser scan: %w", err)
 		}
-
-		res = append(res, domain.HWBrief{
-			Subject:      subj,
-			HomeworkText: text,
-			Status:       status,
-		})
+		hw.Subject = fmt.Sprintf("#%d", hw.ID)
+		res = append(res, hw)
 	}
-
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("ListForLastWeek rows: %w", err)
+		return nil, fmt.Errorf("ListForUser rows: %w", err)
 	}
-
 	return res, nil
 }
 
-func (r *HomeworkRepo) UpdateStatus(ctx context.Context, userID int64, subject string) error {
+func (r *HomeworkRepo) ListAll(ctx context.Context) ([]domain.HWBrief, error) {
 	const q = `
-UPDATE homeworks
-SET status = $3
-WHERE subject = $2
-  AND id_user = $1;
+SELECT h.id, h.text, COALESCE(h.status, ''), string_agg(g.group_name, ', ' ORDER BY g.group_name)
+FROM homeworks h
+JOIN group_homeworks gh ON gh.homework_id = h.id
+JOIN groups g ON g.id = gh.group_id
+GROUP BY h.id
+ORDER BY h.id DESC;
 `
-	res, err := r.db.GetSql().ExecContext(ctx, q, userID, subject, "done")
+	rows, err := r.db.GetSql().QueryContext(ctx, q)
 	if err != nil {
-		return fmt.Errorf("Update homework exec: %w", err)
+		return nil, fmt.Errorf("ListAll query: %w", err)
 	}
+	defer rows.Close()
 
+	var res []domain.HWBrief
+	for rows.Next() {
+		var hw domain.HWBrief
+		var groups string
+		if err := rows.Scan(&hw.ID, &hw.HomeworkText, &hw.Status, &groups); err != nil {
+			return nil, fmt.Errorf("ListAll scan: %w", err)
+		}
+		hw.Subject = fmt.Sprintf("#%d", hw.ID)
+		if groups != "" {
+			hw.HomeworkText = fmt.Sprintf("[%s] %s", groups, hw.HomeworkText)
+		}
+		res = append(res, hw)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ListAll rows: %w", err)
+	}
+	return res, nil
+}
+
+func (r *HomeworkRepo) UpdateStatus(ctx context.Context, homeworkID int64) error {
+	res, err := r.db.GetSql().ExecContext(ctx, `UPDATE homeworks SET status = $2 WHERE id = $1`, homeworkID, "done")
+	if err != nil {
+		return fmt.Errorf("UpdateStatus exec: %w", err)
+	}
 	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
-		return fmt.Errorf("Update homework: not found (user=%d, subject=%s)", userID, subject)
+		return fmt.Errorf("UpdateStatus homework: not found (id=%d)", homeworkID)
 	}
 	return nil
 }
 
-func (r *HomeworkRepo) Delete(
-	ctx context.Context,
-	userID int64,
-	subject string,
-) error {
-	const q = `
-DELETE FROM homeworks
-WHERE id_user = $1
-  AND subject = $2;
-`
-	_, err := r.db.GetSql().ExecContext(ctx, q, userID, subject)
+func (r *HomeworkRepo) Delete(ctx context.Context, homeworkID int64) error {
+	_, err := r.db.GetSql().ExecContext(ctx, `DELETE FROM homeworks WHERE id = $1`, homeworkID)
 	if err != nil {
 		return fmt.Errorf("homeworks.Delete exec: %w", err)
 	}
-
 	return nil
 }
 
-func (r *HomeworkRepo) CheckExistence(
-	ctx context.Context,
-	userID int64,
-	subject string,
-) (bool, error) {
+func (r *HomeworkRepo) CheckExistence(ctx context.Context, userID, homeworkID int64) (bool, error) {
 	const q = `
 SELECT 1
-FROM homeworks
-WHERE id_user = $1
-  AND subject = $2
+FROM homeworks h
+JOIN group_homeworks gh ON gh.homework_id = h.id
+JOIN students s ON s.group_id = gh.group_id
+WHERE s.user_id = $1
+  AND h.id = $2
 LIMIT 1;
 `
-
 	var dummy int
-	err := r.db.GetSql().QueryRowContext(ctx, q, userID, subject).Scan(&dummy)
+	err := r.db.GetSql().QueryRowContext(ctx, q, userID, homeworkID).Scan(&dummy)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("homeworks.CheckExistence query: %w", err)
 	}
-
 	return true, nil
 }

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"timetable-homework-tgbot/internal/domain"
@@ -10,11 +11,11 @@ import (
 )
 
 type NotificationController interface {
-	SetReminder(ctx context.Context, userID int64, subject, weekday, hhmm string) error
+	SetReminder(ctx context.Context, userID int64, homeworkID int64, weekday, hhmm string) error
 	GetUserNotifications(ctx context.Context, userID int64) ([]domain.Notification, error)
 	GetPendingNotifications(ctx context.Context) ([]domain.Notification, error)
 	DeleteUserNotification(ctx context.Context, userID int64, notification string) error
-	DeleteUserNotificationWithTs(ctx context.Context, userID int64, subject string, ts time.Time) error
+	DeleteUserNotificationWithTs(ctx context.Context, userID int64, homeworkID int64, ts time.Time) error
 }
 
 type notificationController struct {
@@ -25,12 +26,12 @@ func NewNotificationController(notificationRepo repositories.NotificationReposit
 	return &notificationController{notificationRepo: notificationRepo}
 }
 
-func (n *notificationController) SetReminder(ctx context.Context, userID int64, subject, date, hhmm string) error {
+func (n *notificationController) SetReminder(ctx context.Context, userID int64, homeworkID int64, date, hhmm string) error {
 	t, err := parseNotificationTime(date, hhmm)
 	if err != nil {
 		return err
 	}
-	if err := n.notificationRepo.AddNotification(ctx, userID, subject, t); err != nil {
+	if err := n.notificationRepo.AddNotification(ctx, userID, homeworkID, t); err != nil {
 		return err
 	}
 	return nil
@@ -45,18 +46,18 @@ func (n *notificationController) GetUserNotifications(ctx context.Context, userI
 }
 
 func (n *notificationController) DeleteUserNotification(ctx context.Context, userID int64, notification string) error {
-	subject, t, err := parseNotificationLabel(notification)
+	homeworkID, t, err := parseNotificationLabel(notification)
 	if err != nil {
 		return err
 	}
-	if err := n.notificationRepo.DeleteNotification(ctx, userID, subject, t); err != nil {
+	if err := n.notificationRepo.DeleteNotification(ctx, userID, homeworkID, t); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (n *notificationController) DeleteUserNotificationWithTs(ctx context.Context, userID int64, subject string, ts time.Time) error {
-	if err := n.notificationRepo.DeleteNotification(ctx, userID, subject, ts); err != nil {
+func (n *notificationController) DeleteUserNotificationWithTs(ctx context.Context, userID int64, homeworkID int64, ts time.Time) error {
+	if err := n.notificationRepo.DeleteNotification(ctx, userID, homeworkID, ts); err != nil {
 		return err
 	}
 	return nil
@@ -82,20 +83,23 @@ func parseNotificationTime(dateStr, timeStr string) (time.Time, error) {
 	return t, nil
 }
 
-func parseNotificationLabel(label string) (string, time.Time, error) {
+func parseNotificationLabel(label string) (int64, time.Time, error) {
 	parts := strings.SplitN(label, " — ", 2)
 	if len(parts) != 2 {
-		return "", time.Time{}, fmt.Errorf("invalid label format: %q", label)
+		return 0, time.Time{}, fmt.Errorf("invalid label format: %q", label)
 	}
 
-	subject := strings.TrimSpace(parts[0])
+	homeworkID, err := strconv.ParseInt(strings.TrimPrefix(strings.TrimSpace(parts[0]), "#"), 10, 64)
+	if err != nil {
+		return 0, time.Time{}, fmt.Errorf("parse homework id: %w", err)
+	}
 	tsStr := strings.TrimSpace(parts[1])
 
 	const layout = "02.01.2006 15:04"
 	ts, err := time.ParseInLocation(layout, tsStr, time.Local)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("parse time %q: %w", tsStr, err)
+		return 0, time.Time{}, fmt.Errorf("parse time %q: %w", tsStr, err)
 	}
 
-	return subject, ts, nil
+	return homeworkID, ts, nil
 }

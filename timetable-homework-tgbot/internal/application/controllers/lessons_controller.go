@@ -8,7 +8,7 @@ import (
 )
 
 type LessonsController interface {
-	EnsureJoined(ctx context.Context, userID int64) (bool, error)
+	GetRole(ctx context.Context, userID int64) (string, error)
 	GetTimetableGroup(ctx context.Context, group string) string
 	GetTimetableTeacher(ctx context.Context, teacherFio string) string
 	GetTimetableRoom(ctx context.Context, room string) string
@@ -24,12 +24,8 @@ func NewLessonController(lessonsRepo repositories.LessonsRepository, userRepo re
 	return &lessonsController{lessonsRepo: lessonsRepo, auth: controller, formatter: formatter.GetFormatter()}
 }
 
-func (l *lessonsController) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
-	b, err := l.auth.EnsureJoined(ctx, userID)
-	if err != nil {
-		return false, err
-	}
-	return b, nil
+func (l *lessonsController) GetRole(ctx context.Context, userID int64) (string, error) {
+	return l.auth.GetRole(ctx, userID)
 }
 
 func (l *lessonsController) GetTimetableGroup(ctx context.Context, group string) string {

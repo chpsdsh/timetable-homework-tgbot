@@ -43,15 +43,17 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 
 	h.bot.GetState().Del(chatID)
 
-	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	role, err := h.lessonsController.GetRole(ctx, userId)
 	if err != nil {
 		log.Println(err)
 		h.bot.GetState().Del(chatID)
 		return
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
-	if joined {
-		keyboardFunc = h.keyboard.KBMember
+	if role == "student" {
+		keyboardFunc = h.keyboard.KBStudent
+	} else if role == "teacher" {
+		keyboardFunc = h.keyboard.KBTeacher
 	} else {
 		keyboardFunc = h.keyboard.KBGuest
 	}
@@ -81,15 +83,17 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 	timetable := h.lessonsController.GetTimetableTeacher(ctx, teacher)
 	h.bot.GetState().Del(chatID)
 
-	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	role, err := h.lessonsController.GetRole(ctx, userId)
 	if err != nil {
 		log.Println(err)
 		h.bot.GetState().Del(chatID)
 		return
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
-	if joined {
-		keyboardFunc = h.keyboard.KBMember
+	if role == "student" {
+		keyboardFunc = h.keyboard.KBStudent
+	} else if role == "teacher" {
+		keyboardFunc = h.keyboard.KBTeacher
 	} else {
 		keyboardFunc = h.keyboard.KBGuest
 	}
@@ -118,15 +122,17 @@ func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {
 
 	timetable := h.lessonsController.GetTimetableRoom(ctx, room)
 	h.bot.GetState().Del(chatID)
-	joined, err := h.lessonsController.EnsureJoined(ctx, userId)
+	role, err := h.lessonsController.GetRole(ctx, userId)
 	if err != nil {
 		log.Println(err)
 		h.bot.GetState().Del(chatID)
 		return
 	}
 	var keyboardFunc func() tgbotapi.ReplyKeyboardMarkup
-	if joined {
-		keyboardFunc = h.keyboard.KBMember
+	if role == "student" {
+		keyboardFunc = h.keyboard.KBStudent
+	} else if role == "teacher" {
+		keyboardFunc = h.keyboard.KBTeacher
 	} else {
 		keyboardFunc = h.keyboard.KBGuest
 	}

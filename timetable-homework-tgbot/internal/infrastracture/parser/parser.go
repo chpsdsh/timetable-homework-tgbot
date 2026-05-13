@@ -4,8 +4,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
+	"time"
 	"timetable-homework-tgbot/internal/domain/lesson"
 	"timetable-homework-tgbot/internal/domain/urlselector"
 
@@ -26,6 +28,10 @@ var instance *Parser
 
 var once sync.Once
 
+var httpClient = &http.Client{Timeout: 20 * time.Second}
+
+var timePattern = regexp.MustCompile(`\b\d{1,2}:\d{2}\b`)
+
 func GetParser() *Parser {
 	once.Do(func() {
 		instance = &Parser{}
@@ -35,21 +41,28 @@ func GetParser() *Parser {
 
 func (p *Parser) ParseLessonsStudent(groupUrl string) []lesson.LessonStudent {
 	page := nsuPage + groupUrl
-	resp, err := http.Get(page)
+	resp, err := httpClient.Get(page)
 	if err != nil {
-		panic(err)
+		log.Printf("parse student lessons request failed: %s: %v", page, err)
+		return nil
 	}
 
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		log.Printf("parse student lessons bad status: %s: %s", page, resp.Status)
+		return nil
+	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		panic(err)
+		log.Printf("parse student lessons document failed: %s: %v", page, err)
+		return nil
 	}
 
 	table := doc.Find("table.time-table").First()
-	if table == nil {
-		log.Fatal("table not found")
+	if table.Length() == 0 {
+		log.Printf("parse student lessons: table not found: %s", page)
+		return nil
 	}
 
 	days := make([]string, 0)
@@ -69,7 +82,10 @@ func (p *Parser) ParseLessonsStudent(groupUrl string) []lesson.LessonStudent {
 		}
 
 		tds := tr.Find("td")
-		startTime := strings.TrimSpace(tds.Eq(0).Text())
+		startTime := extractStartTime(tds.Eq(0).Text())
+		if startTime == "" {
+			return
+		}
 
 		for col := 1; col < tds.Length(); col++ {
 			weekdayIdx := col - 1
@@ -82,6 +98,9 @@ func (p *Parser) ParseLessonsStudent(groupUrl string) []lesson.LessonStudent {
 			cells.Each(func(i int, cell *goquery.Selection) {
 				lessonType := strings.TrimSpace(cell.Find("span.type").First().Text())
 				subject := strings.TrimSpace(cell.Find("div.subject").First().Text())
+				if subject == "" {
+					return
+				}
 				room := strings.TrimSpace(cell.Find("div.room a").First().Text())
 				tutor := strings.TrimSpace(cell.Find("a.tutor").First().Text())
 				week := strings.TrimSpace(cell.Find("div.week").First().Text())
@@ -100,9 +119,10 @@ func abs(base, href string) string {
 
 func (p *Parser) ParseTeachers() []urlselector.Teacher {
 	teachers := make([]urlselector.Teacher, 0)
-	resp, err := http.Get(teachersPage)
+	resp, err := httpClient.Get(teachersPage)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return teachers
 	}
 	defer resp.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -123,9 +143,10 @@ func (p *Parser) ParseTeachers() []urlselector.Teacher {
 
 func (p *Parser) ParseRooms() []urlselector.Room {
 	rooms := make([]urlselector.Room, 0)
-	resp, err := http.Get(roomPage)
+	resp, err := httpClient.Get(roomPage)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return rooms
 	}
 	defer resp.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -143,9 +164,10 @@ func (p *Parser) ParseRooms() []urlselector.Room {
 
 func (p *Parser) ParseFaculties() []urlselector.Faculty {
 	faculties := make([]urlselector.Faculty, 0)
-	resp, err := http.Get(facultiesPage)
+	resp, err := httpClient.Get(facultiesPage)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return faculties
 	}
 	defer resp.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -165,9 +187,10 @@ func (p *Parser) ParseGroups(facultyURL string) []urlselector.Group {
 	groups := make([]urlselector.Group, 0)
 	seen := make(map[string]struct{})
 
-	resp, err := http.Get(facultyURL)
+	resp, err := httpClient.Get(facultyURL)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return groups
 	}
 	defer resp.Body.Close()
 
@@ -197,7 +220,7 @@ func (p *Parser) ParseGroups(facultyURL string) []urlselector.Group {
 }
 
 func (p *Parser) ParseLessonsTeacher(url string) []lesson.LessonTeacher {
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -212,8 +235,9 @@ func (p *Parser) ParseLessonsTeacher(url string) []lesson.LessonTeacher {
 	}
 
 	table := doc.Find("table.time-table").First()
-	if table == nil {
-		log.Fatal("table not found")
+	if table.Length() == 0 {
+		log.Printf("parse teacher lessons: table not found: %s", url)
+		return nil
 	}
 
 	days := make([]string, 0)
@@ -233,7 +257,10 @@ func (p *Parser) ParseLessonsTeacher(url string) []lesson.LessonTeacher {
 		}
 
 		tds := tr.Find("td")
-		startTime := strings.TrimSpace(tds.Eq(0).Text())
+		startTime := extractStartTime(tds.Eq(0).Text())
+		if startTime == "" {
+			return
+		}
 
 		for col := 1; col < tds.Length(); col++ {
 			weekdayIdx := col - 1
@@ -246,6 +273,9 @@ func (p *Parser) ParseLessonsTeacher(url string) []lesson.LessonTeacher {
 			cells.Each(func(i int, cell *goquery.Selection) {
 				lessonType := strings.TrimSpace(cell.Find("span.type").First().Text())
 				subject := strings.TrimSpace(cell.Find("div.subject").First().Text())
+				if subject == "" {
+					return
+				}
 				room := strings.TrimSpace(cell.Find("div.room a").First().Text())
 				groups := make([]string, 0)
 				cells.Find("div.groups").Find("a.group").Each(func(i int, group *goquery.Selection) {
@@ -260,9 +290,10 @@ func (p *Parser) ParseLessonsTeacher(url string) []lesson.LessonTeacher {
 }
 
 func (p *Parser) ParseLessonsRoom(url string) []lesson.LessonRoom {
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return nil
 	}
 
 	defer resp.Body.Close()
@@ -273,8 +304,9 @@ func (p *Parser) ParseLessonsRoom(url string) []lesson.LessonRoom {
 	}
 
 	table := doc.Find("table.time-table").First()
-	if table == nil {
-		log.Fatal("table not found")
+	if table.Length() == 0 {
+		log.Printf("parse room lessons: table not found: %s", url)
+		return nil
 	}
 
 	days := make([]string, 0)
@@ -294,7 +326,10 @@ func (p *Parser) ParseLessonsRoom(url string) []lesson.LessonRoom {
 		}
 
 		tds := tr.Find("td")
-		startTime := strings.TrimSpace(tds.Eq(0).Text())
+		startTime := extractStartTime(tds.Eq(0).Text())
+		if startTime == "" {
+			return
+		}
 
 		for col := 1; col < tds.Length(); col++ {
 			weekdayIdx := col - 1
@@ -307,6 +342,9 @@ func (p *Parser) ParseLessonsRoom(url string) []lesson.LessonRoom {
 			cells.Each(func(i int, cell *goquery.Selection) {
 				lessonType := strings.TrimSpace(cell.Find("span.type").First().Text())
 				subject := strings.TrimSpace(cell.Find("div.subject").First().Text())
+				if subject == "" {
+					return
+				}
 				teacher := strings.TrimSpace(cell.Find("a.tutor").First().Text())
 				groups := make([]string, 0)
 				cells.Find("div.groups").Find("a.group").Each(func(i int, group *goquery.Selection) {
@@ -318,4 +356,8 @@ func (p *Parser) ParseLessonsRoom(url string) []lesson.LessonRoom {
 		}
 	})
 	return lessons
+}
+
+func extractStartTime(text string) string {
+	return timePattern.FindString(text)
 }

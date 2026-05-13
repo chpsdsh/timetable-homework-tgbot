@@ -49,7 +49,8 @@ func NewWithDeps(
 
 	// меню
 	r.OnText(telegram.BtnShowTimeTable, ttH.ShowMenu)
-	r.OnText(telegram.BtnJoin, cmdH.Join)
+	r.OnText(telegram.BtnRegisterStudent, cmdH.Join)
+	r.OnText(telegram.BtnRegisterTeacher, cmdH.JoinTeacher)
 	r.OnText(telegram.BtnLeave, cmdH.Leave)
 	r.OnText(telegram.BtnSkip, cmdH.Skip)
 	r.OnState(telegram.StateWaitUserGroup, cmdH.WaitUserGroup)
@@ -64,6 +65,7 @@ func NewWithDeps(
 
 	// ДЗ
 	r.OnText(telegram.BtnPinHW, hwH.PinStart)
+	r.OnState(telegram.StateWaitHWGroup, hwH.WaitGroup)
 	r.OnState(telegram.StateWaitHWDay, hwH.WaitDay)
 	r.OnState(telegram.StateWaitHWLesson, hwH.WaitLesson)
 	r.OnState(telegram.StateWaitHWText, hwH.WaitText)
@@ -93,7 +95,20 @@ func NewWithDeps(
 	// дефолт
 	keyboard := telegram.GetKeyboardController()
 	r.Default(func(ctx context.Context, u tgbotapi.Update) {
-		_ = bot.Send(u.Message.Chat.ID, "Нажми кнопку меню или /start", keyboard.KBGuest())
+		role, err := authCtl.GetRole(ctx, u.Message.From.ID)
+		if err != nil {
+			log.Printf("default get role failed: %v", err)
+		}
+
+		kb := keyboard.KBGuest()
+		switch role {
+		case repositories.RoleStudent:
+			kb = keyboard.KBStudent()
+		case repositories.RoleTeacher:
+			kb = keyboard.KBTeacher()
+		}
+
+		_ = bot.Send(u.Message.Chat.ID, "Данное сообщение не поддерживается, воспользуйтесь кнопками в меню", kb)
 	})
 
 	return &App{bot: bot}, nil

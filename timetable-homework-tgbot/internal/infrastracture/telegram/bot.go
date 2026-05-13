@@ -13,6 +13,7 @@ import (
 
 const (
 	StateWaitUserGroup        = "wait_user_group"
+	StateWaitHWGroup          = "wait_hw_group"
 	StateWaitGroupTB          = "wait_tb_group"
 	StateWaitTeacherTB        = "wait_tb_teacher"
 	StateWaitRoomTB           = "wait_tb_room"
@@ -33,6 +34,7 @@ const (
 var ErrTooManyRequests = fmt.Errorf("too many requests")
 
 type HwSession struct {
+	Group       string
 	Day         string
 	LessonTitle string
 }

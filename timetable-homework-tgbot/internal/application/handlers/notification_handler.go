@@ -39,9 +39,15 @@ func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	userID := u.Message.From.ID
 	homework := strings.TrimSpace(u.Message.Text)
-	arg := strings.Split(homework, ":")
+	homeworkID, err := parseHomeworkID(homework)
+	if err != nil {
+		h.bot.GetState().Del(chatID)
+		h.bot.HWSessDel(chatID)
+		_ = h.bot.Send(chatID, "Некорректное домашнее задание", h.keyboard.KBMember())
+		return
+	}
 
-	exist, err := h.hw.CheckExistence(ctx, userID, strings.TrimSpace(arg[0]))
+	exist, err := h.hw.CheckExistence(ctx, userID, homeworkID)
 	if err != nil {
 		log.Println(err)
 		h.bot.HWSessDel(chatID)
@@ -93,8 +99,15 @@ func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 	}
 	s.TimeHHMM = tStr
 
-	log.Println("subject:", s.SubjectWithTask)
-	if err := h.ctl.SetReminder(ctx, userID, s.SubjectWithTask, s.Date, s.TimeHHMM); err != nil {
+	homeworkID, err := parseHomeworkID(s.SubjectWithTask)
+	if err != nil {
+		_ = h.bot.Send(chatID, "Не удалось определить домашнее задание.", h.keyboard.KBMember())
+		h.bot.RemSessDel(chatID)
+		h.bot.GetState().Del(chatID)
+		return
+	}
+	log.Println("homework:", homeworkID)
+	if err := h.ctl.SetReminder(ctx, userID, homeworkID, s.Date, s.TimeHHMM); err != nil {
 		log.Println(err.Error())
 		_ = h.bot.Send(chatID, "Не удалось создать напоминание.", h.keyboard.KBMember())
 		h.bot.RemSessDel(chatID)
@@ -171,7 +184,7 @@ func (h *NotifyHandler) checkPendingNotifications(ctx context.Context) {
 			continue
 		}
 
-		if err := h.ctl.DeleteUserNotificationWithTs(ctx, n.UserID, n.Subject, n.Timestamp); err != nil {
+		if err := h.ctl.DeleteUserNotificationWithTs(ctx, n.UserID, n.HomeworkID, n.Timestamp); err != nil {
 			log.Println("delete notif:", err)
 		}
 	}

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"log"
+	"strconv"
 	"strings"
 	"timetable-homework-tgbot/internal/application/controllers"
 	"timetable-homework-tgbot/internal/application/formatter"
@@ -24,25 +25,41 @@ func NewHomeworkHandler(hw controllers.HomeworkController, bot *telegram.Bot) *H
 
 func (h *HomeworkHandler) PinStart(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
-	days, err := h.hw.DaysWithLessons(ctx, userID)
-	if err != nil || len(days) == 0 {
-		_ = h.bot.Send(chatID, "Нет ближайших занятий или вы не присоединены к группе.", h.keyboard.KBMember())
+	role, err := h.hw.GetRole(ctx, userID)
+	if err != nil || role != "teacher" {
+		_ = h.bot.Send(chatID, "Прикреплять домашние задания может только преподаватель.", h.keyboard.KBGuest())
 		return
 	}
+	h.bot.GetState().Set(chatID, telegram.StateWaitHWGroup)
+	_ = h.bot.SendRemove(chatID, "Для какой группы прикрепить ДЗ?")
+}
+
+func (h *HomeworkHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
+	chatID := u.Message.Chat.ID
+	group := strings.ReplaceAll(strings.TrimSpace(u.Message.Text), " ", "")
+	days, err := h.hw.DaysWithLessons(ctx, group)
+	if err != nil || len(days) == 0 {
+		h.bot.GetState().Del(chatID)
+		_ = h.bot.Send(chatID, "Не нашёл расписание для этой группы.", h.keyboard.KBTeacher())
+		return
+	}
+	h.bot.HWSessSet(chatID, telegram.HwSession{Group: group})
 	h.bot.GetState().Set(chatID, telegram.StateWaitHWDay)
 	_ = h.bot.Send(chatID, "К какому дню недели прикрепить ДЗ?", h.keyboard.KBDays(days))
 }
 
 func (h *HomeworkHandler) WaitDay(ctx context.Context, u tgbotapi.Update) {
-	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+	chatID := u.Message.Chat.ID
 	day := strings.TrimSpace(u.Message.Text)
-	lessons, err := h.hw.LessonsByDay(ctx, userID, day)
+	s := h.bot.HWSessGet(chatID)
+	lessons, err := h.hw.LessonsByDay(ctx, s.Group, day)
 	if err != nil || len(lessons) == 0 {
 		h.bot.GetState().Del(chatID)
-		_ = h.bot.Send(chatID, "В этот день пар нет. Выбери другой.", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "В этот день пар нет. Выбери другой.", h.keyboard.KBTeacher())
 		return
 	}
-	h.bot.HWSessSet(chatID, telegram.HwSession{Day: day})
+	s.Day = day
+	h.bot.HWSessSet(chatID, s)
 
 	h.bot.GetState().Set(chatID, telegram.StateWaitHWLesson)
 
@@ -68,22 +85,22 @@ func (h *HomeworkHandler) WaitLesson(ctx context.Context, u tgbotapi.Update) {
 }
 
 func (h *HomeworkHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
-	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+	chatID := u.Message.Chat.ID
 	text := strings.TrimSpace(u.Message.Text)
 	s := h.bot.HWSessGet(chatID)
-	if s.Day == "" || s.LessonTitle == "" {
-		_ = h.bot.Send(chatID, "Сессия потерялась, начни заново.", h.keyboard.KBMember())
+	if s.Group == "" || s.Day == "" || s.LessonTitle == "" {
+		_ = h.bot.Send(chatID, "Сессия потерялась, начни заново.", h.keyboard.KBTeacher())
 		h.bot.GetState().Del(chatID)
 		return
 	}
-	if err := h.hw.Pin(ctx, userID, s.Day, s.LessonTitle, text); err != nil {
-		_ = h.bot.Send(chatID, "Не удалось прикрепить домашнее задание", h.keyboard.KBMember())
+	if err := h.hw.Pin(ctx, s.Group, s.Day, s.LessonTitle, text); err != nil {
+		_ = h.bot.Send(chatID, "Не удалось прикрепить домашнее задание", h.keyboard.KBTeacher())
 		h.bot.GetState().Del(chatID)
 		return
 	}
 	h.bot.GetState().Del(chatID)
 	h.bot.HWSessDel(chatID)
-	_ = h.bot.Send(chatID, "Домашнее задание сохранено ✅", h.keyboard.KBMember())
+	_ = h.bot.Send(chatID, "Домашнее задание сохранено ✅", h.keyboard.KBTeacher())
 }
 
 func (h *HomeworkHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
@@ -99,7 +116,7 @@ func (h *HomeworkHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
 }
 
 func (h *HomeworkHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
-	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+	chatID := u.Message.Chat.ID
 	newText := strings.TrimSpace(u.Message.Text)
 	if h.bot.GetState().Get(chatID) != telegram.StateWaitHWTextEdit {
 		_ = h.bot.Send(chatID, "Сессия потерялась, начни заново.", h.keyboard.KBMember())
@@ -113,7 +130,14 @@ func (h *HomeworkHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 		return
 	}
 
-	if err := h.hw.Update(ctx, userID, s.LessonTitle, newText); err != nil {
+	homeworkID, err := strconv.ParseInt(s.LessonTitle, 10, 64)
+	if err != nil {
+		_ = h.bot.Send(chatID, "Не удалось определить домашнее задание", h.keyboard.KBMember())
+		h.bot.GetState().Del(chatID)
+		return
+	}
+
+	if err := h.hw.Update(ctx, homeworkID, newText); err != nil {
 		_ = h.bot.Send(chatID, "Не удалось обновить домашнее задание", h.keyboard.KBMember())
 		h.bot.GetState().Del(chatID)
 		return
@@ -126,6 +150,32 @@ func (h *HomeworkHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
 
 func (h *HomeworkHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
+	role, err := h.hw.GetRole(ctx, userID)
+	if err != nil {
+		log.Println(err)
+		h.bot.GetState().Del(chatID)
+		_ = h.bot.Send(chatID, "Не удалось определить роль.", h.keyboard.KBGuest())
+		return
+	}
+
+	if u.Message.Text == telegram.BtnDeleteHomeworks {
+		if role != "teacher" {
+			h.bot.GetState().Del(chatID)
+			_ = h.bot.Send(chatID, "Удалять домашние задания может только преподаватель.", h.keyboard.KBStudent())
+			return
+		}
+		hw, err := h.hw.ListAll(ctx)
+		if err != nil || len(hw) == 0 {
+			log.Println(err)
+			h.bot.GetState().Del(chatID)
+			_ = h.bot.Send(chatID, "Нет домашек для удаления.\n ", h.keyboard.KBTeacher())
+			return
+		}
+		h.bot.GetState().Set(chatID, telegram.StateWaitHWTableToDelete)
+		_ = h.bot.Send(chatID, "Выбери домашку для удаления:\n ", h.keyboard.KBHomeworks(hw))
+		return
+	}
+
 	hw, err := h.hw.ListForLastWeek(ctx, userID)
 	if err != nil || len(hw) == 0 {
 		h.bot.GetState().Del(chatID)
@@ -137,17 +187,6 @@ func (h *HomeworkHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) 
 		formHw := h.formatter.FormatHomeworks(hw)
 		h.bot.GetState().Del(chatID)
 		_ = h.bot.Send(chatID, "Список домашек:\n "+formHw, h.keyboard.KBMember())
-	case telegram.BtnDeleteHomeworks:
-		list, err := h.hw.ListForLastWeek(ctx, userID)
-		if err != nil || len(list) == 0 {
-			log.Println(err)
-			h.bot.GetState().Del(chatID)
-			_ = h.bot.Send(chatID, "Нет домашек для удаления.\n ", h.keyboard.KBMember())
-			return
-		}
-
-		h.bot.GetState().Set(chatID, telegram.StateWaitHWTableToDelete)
-		_ = h.bot.Send(chatID, "Выбери домашку для удаления:\n ", h.keyboard.KBHomeworks(hw))
 	case telegram.BtnUpdateHomeworkStatus:
 		h.bot.GetState().Set(chatID, telegram.StateWaitHomeworkUpdateChoose)
 		_ = h.bot.Send(chatID, "Выбери домашку для обновления статуса:\n ", h.keyboard.KBHomeworks(hw))
@@ -158,32 +197,57 @@ func (h *HomeworkHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Upda
 	chatID := u.Message.Chat.ID
 	userID := u.Message.From.ID
 	s := h.bot.HWSessGet(chatID)
-	arr := strings.Split(strings.TrimSpace(u.Message.Text), ":")
-	s.LessonTitle = strings.TrimSpace(arr[0])
-	exist, err := h.hw.CheckExistence(ctx, userID, s.LessonTitle)
+	homeworkID, err := parseHomeworkID(u.Message.Text)
 	if err != nil {
-		log.Println(err)
-		h.bot.HWSessDel(chatID)
-		h.bot.GetState().Del(chatID)
-		return
-	}
-	if !exist {
 		h.bot.GetState().Del(chatID)
 		h.bot.HWSessDel(chatID)
 		_ = h.bot.Send(chatID, "Некорректное домашнее задание", h.keyboard.KBMember())
 		return
 	}
-
+	s.LessonTitle = strconv.FormatInt(homeworkID, 10)
 	h.bot.HWSessSet(chatID, s)
 	switch h.bot.GetState().Get(chatID) {
 	case telegram.StateWaitHWTable:
+		exist, err := h.hw.CheckExistence(ctx, userID, homeworkID)
+		if err != nil {
+			log.Println(err)
+			h.bot.HWSessDel(chatID)
+			h.bot.GetState().Del(chatID)
+			return
+		}
+		if !exist {
+			h.bot.GetState().Del(chatID)
+			h.bot.HWSessDel(chatID)
+			_ = h.bot.Send(chatID, "Некорректное домашнее задание", h.keyboard.KBMember())
+			return
+		}
 		h.bot.GetState().Set(chatID, telegram.StateWaitHWTextEdit)
 		_ = h.bot.SendRemove(chatID, "Введи новый текст ДЗ:")
 	case telegram.StateWaitHWTableToDelete:
+		role, err := h.hw.GetRole(ctx, userID)
+		if err != nil || role != "teacher" {
+			h.bot.GetState().Del(chatID)
+			h.bot.HWSessDel(chatID)
+			_ = h.bot.Send(chatID, "Удалять домашние задания может только преподаватель.", h.keyboard.KBStudent())
+			return
+		}
 		h.bot.GetState().Set(chatID, telegram.StateWaitConfirmDelete)
 		_ = h.bot.Send(chatID, "Подтвердите удаление:", h.keyboard.KBConfirmDelete())
 	case telegram.StateWaitHomeworkUpdateChoose:
-		if err := h.hw.UpdateStatus(ctx, userID, s.LessonTitle); err != nil {
+		exist, err := h.hw.CheckExistence(ctx, userID, homeworkID)
+		if err != nil {
+			log.Println(err)
+			h.bot.HWSessDel(chatID)
+			h.bot.GetState().Del(chatID)
+			return
+		}
+		if !exist {
+			h.bot.GetState().Del(chatID)
+			h.bot.HWSessDel(chatID)
+			_ = h.bot.Send(chatID, "Некорректное домашнее задание", h.keyboard.KBMember())
+			return
+		}
+		if err := h.hw.UpdateStatus(ctx, homeworkID); err != nil {
 			log.Println(err)
 			h.bot.HWSessDel(chatID)
 			h.bot.GetState().Del(chatID)
@@ -197,22 +261,41 @@ func (h *HomeworkHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Upda
 }
 
 func (h *HomeworkHandler) WaitConfirmDelete(ctx context.Context, u tgbotapi.Update) {
-	chatID := u.Message.Chat.ID
-	userID := u.Message.From.ID
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	s := h.bot.HWSessGet(chatID)
 	if u.Message.Text == telegram.BtnDelete {
-		if err := h.hw.DeleteHomework(ctx, userID, s.LessonTitle); err != nil {
+		role, err := h.hw.GetRole(ctx, userID)
+		if err != nil || role != "teacher" {
+			h.bot.GetState().Del(chatID)
+			h.bot.HWSessDel(chatID)
+			_ = h.bot.Send(chatID, "Удалять домашние задания может только преподаватель.", h.keyboard.KBStudent())
+			return
+		}
+		homeworkID, err := strconv.ParseInt(s.LessonTitle, 10, 64)
+		if err != nil {
+			log.Println(err)
+			h.bot.GetState().Del(chatID)
+			return
+		}
+		if err := h.hw.DeleteHomework(ctx, homeworkID); err != nil {
 			log.Println(err)
 			h.bot.GetState().Del(chatID)
 			return
 		}
 		h.bot.GetState().Del(chatID)
 		h.bot.HWSessDel(chatID)
-		_ = h.bot.Send(chatID, "Домашнее задание удалено ✅", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Домашнее задание удалено ✅", h.keyboard.KBTeacher())
 	} else if u.Message.Text == telegram.BtnNotDelete {
 		h.bot.GetState().Del(chatID)
 		h.bot.HWSessDel(chatID)
-		_ = h.bot.Send(chatID, "Домашнее задание оставлено ✅", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Домашнее задание оставлено ✅", h.keyboard.KBTeacher())
 	}
 
+}
+
+func parseHomeworkID(label string) (int64, error) {
+	label = strings.TrimSpace(label)
+	label = strings.TrimPrefix(label, "#")
+	idPart := strings.TrimSpace(strings.SplitN(label, ":", 2)[0])
+	return strconv.ParseInt(idPart, 10, 64)
 }

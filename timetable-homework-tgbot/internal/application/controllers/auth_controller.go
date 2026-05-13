@@ -14,8 +14,10 @@ var (
 )
 
 type AuthController interface {
-	EnsureJoined(ctx context.Context, userID int64) (bool, error)
-	JoinGroup(ctx context.Context, userID int64, group string) error
+	GetRole(ctx context.Context, userID int64) (string, error)
+	EnsureRegistered(ctx context.Context, userID int64) (bool, error)
+	RegisterStudent(ctx context.Context, userID int64, group string) error
+	RegisterTeacher(ctx context.Context, userID int64) error
 	LeaveGroup(ctx context.Context, userID int64) error
 }
 
@@ -33,15 +35,19 @@ func NewAuthController(userRepo repositories.UsersRepository, lessonRepo reposit
 	}
 }
 
-func (a *authenticationController) EnsureJoined(ctx context.Context, userID int64) (bool, error) {
-	group, err := a.userRepo.GetGroup(ctx, userID)
+func (a *authenticationController) GetRole(ctx context.Context, userID int64) (string, error) {
+	return a.userRepo.GetRole(ctx, userID)
+}
+
+func (a *authenticationController) EnsureRegistered(ctx context.Context, userID int64) (bool, error) {
+	role, err := a.userRepo.GetRole(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	return group != "", nil
+	return role != repositories.RoleGuest, nil
 }
 
-func (a *authenticationController) JoinGroup(ctx context.Context, userID int64, group string) error {
+func (a *authenticationController) RegisterStudent(ctx context.Context, userID int64, group string) error {
 	ctx, cancel := context.WithTimeout(ctx, a.timeout)
 	defer cancel()
 
@@ -55,15 +61,22 @@ func (a *authenticationController) JoinGroup(ctx context.Context, userID int64, 
 		return ErrGroupNotExist
 	}
 
-	if err := a.userRepo.SetGroup(ctx, userID, group); err != nil {
+	if err := a.userRepo.RegisterStudent(ctx, userID, group); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func (a *authenticationController) RegisterTeacher(ctx context.Context, userID int64) error {
+	ctx, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+
+	return a.userRepo.RegisterTeacher(ctx, userID)
+}
+
 func (a *authenticationController) LeaveGroup(ctx context.Context, userID int64) error {
-	err := a.userRepo.RemoveGroup(ctx, userID)
+	err := a.userRepo.Leave(ctx, userID)
 	if err != nil {
 		return err
 	}
