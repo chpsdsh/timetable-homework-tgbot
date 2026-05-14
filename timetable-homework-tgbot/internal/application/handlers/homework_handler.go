@@ -105,10 +105,16 @@ func (h *HomeworkHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 
 func (h *HomeworkHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
-	hw, err := h.hw.ListForLastWeek(ctx, userID)
+	role, err := h.hw.GetRole(ctx, userID)
+	if err != nil || role != "teacher" {
+		h.bot.GetState().Del(chatID)
+		_ = h.bot.Send(chatID, "Редактировать домашние работы может только преподаватель.", h.keyboard.KBStudent())
+		return
+	}
+	hw, err := h.hw.ListForTeacher(ctx, userID)
 	if err != nil || len(hw) == 0 {
 		h.bot.GetState().Del(chatID)
-		_ = h.bot.Send(chatID, "Нет домашних работ для редактирования.", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Нет домашних работ для редактирования.", h.keyboard.KBTeacher())
 		return
 	}
 	h.bot.GetState().Set(chatID, telegram.StateWaitHWTable)
@@ -116,36 +122,36 @@ func (h *HomeworkHandler) EditStart(ctx context.Context, u tgbotapi.Update) {
 }
 
 func (h *HomeworkHandler) WaitTextEdit(ctx context.Context, u tgbotapi.Update) {
-	chatID := u.Message.Chat.ID
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	newText := strings.TrimSpace(u.Message.Text)
 	if h.bot.GetState().Get(chatID) != telegram.StateWaitHWTextEdit {
-		_ = h.bot.Send(chatID, "Сессия потерялась, начните заново.", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Сессия потерялась, начните заново.", h.keyboard.KBTeacher())
 		h.bot.GetState().Del(chatID)
 		return
 	}
 	s := h.bot.HWSessGet(chatID)
 	if s.LessonTitle == "" {
-		_ = h.bot.Send(chatID, "Не удалось определить пару.", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Не удалось определить пару.", h.keyboard.KBTeacher())
 		h.bot.GetState().Del(chatID)
 		return
 	}
 
 	homeworkID, err := strconv.ParseInt(s.LessonTitle, 10, 64)
 	if err != nil {
-		_ = h.bot.Send(chatID, "Не удалось определить домашнюю работу", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Не удалось определить домашнюю работу", h.keyboard.KBTeacher())
 		h.bot.GetState().Del(chatID)
 		return
 	}
 
-	if err := h.hw.Update(ctx, homeworkID, newText); err != nil {
-		_ = h.bot.Send(chatID, "Не удалось обновить домашнюю работу", h.keyboard.KBMember())
+	if err := h.hw.Update(ctx, userID, homeworkID, newText); err != nil {
+		_ = h.bot.Send(chatID, "Не удалось обновить домашнюю работу", h.keyboard.KBTeacher())
 		h.bot.GetState().Del(chatID)
 		return
 	}
 
 	h.bot.GetState().Del(chatID)
 	h.bot.HWSessDel(chatID)
-	_ = h.bot.Send(chatID, "Домашняя работа обновлена ✅", h.keyboard.KBMember())
+	_ = h.bot.Send(chatID, "Домашняя работа обновлена ✅", h.keyboard.KBTeacher())
 }
 
 func (h *HomeworkHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) {
@@ -208,7 +214,14 @@ func (h *HomeworkHandler) WaitHomeWorkTable(ctx context.Context, u tgbotapi.Upda
 	h.bot.HWSessSet(chatID, s)
 	switch h.bot.GetState().Get(chatID) {
 	case telegram.StateWaitHWTable:
-		exist, err := h.hw.CheckExistence(ctx, userID, homeworkID)
+		role, err := h.hw.GetRole(ctx, userID)
+		if err != nil || role != "teacher" {
+			h.bot.GetState().Del(chatID)
+			h.bot.HWSessDel(chatID)
+			_ = h.bot.Send(chatID, "Редактировать домашние работы может только преподаватель.", h.keyboard.KBStudent())
+			return
+		}
+		exist, err := h.hw.CheckTeacherHomework(ctx, userID, homeworkID)
 		if err != nil {
 			log.Println(err)
 			h.bot.HWSessDel(chatID)

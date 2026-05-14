@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	StateWaitUserGroup        = "wait_user_group"
 	StateWaitLogin            = "wait_login"
 	StateWaitPassword         = "wait_password"
 	StateWaitHWGroup          = "wait_hw_group"

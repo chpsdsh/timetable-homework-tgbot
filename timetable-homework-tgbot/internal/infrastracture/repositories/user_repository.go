@@ -20,8 +20,6 @@ type UsersRepository interface {
 	GetGroup(ctx context.Context, userID int64) (string, error)
 	LoginStudent(ctx context.Context, userID int64, login, password string) error
 	LoginTeacher(ctx context.Context, userID int64, login, password string) error
-	RegisterStudent(ctx context.Context, userID int64, group string) error
-	RegisterTeacher(ctx context.Context, userID int64) error
 	Leave(ctx context.Context, userID int64) error
 }
 
@@ -140,61 +138,6 @@ WHERE login = $1
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE teachers SET user_id = $1 WHERE id = $2`, userID, teacherID); err != nil {
 		return fmt.Errorf("LoginTeacher bind: %w", err)
-	}
-
-	return tx.Commit()
-}
-
-func (r *UserRepo) RegisterStudent(ctx context.Context, userID int64, group string) error {
-	group = strings.TrimSpace(group)
-	tx, err := r.db.GetSql().BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("RegisterStudent begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if _, err := tx.ExecContext(ctx, `INSERT INTO users (tg_id) VALUES ($1) ON CONFLICT DO NOTHING`, userID); err != nil {
-		return fmt.Errorf("RegisterStudent user: %w", err)
-	}
-	if err := unbindTeacherRows(ctx, tx, userID); err != nil {
-		return fmt.Errorf("RegisterStudent unbind teacher: %w", err)
-	}
-
-	var groupID int64
-	if err := tx.QueryRowContext(ctx, `SELECT id FROM groups WHERE group_name = $1`, group).Scan(&groupID); err != nil {
-		return fmt.Errorf("RegisterStudent group: %w", err)
-	}
-
-	if _, err := tx.ExecContext(ctx, `
-INSERT INTO students (user_id, group_id)
-VALUES ($1, $2)
-ON CONFLICT (user_id) DO UPDATE SET group_id = EXCLUDED.group_id
-`, userID, groupID); err != nil {
-		return fmt.Errorf("RegisterStudent student: %w", err)
-	}
-
-	return tx.Commit()
-}
-
-func (r *UserRepo) RegisterTeacher(ctx context.Context, userID int64) error {
-	tx, err := r.db.GetSql().BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("RegisterTeacher begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if _, err := tx.ExecContext(ctx, `INSERT INTO users (tg_id) VALUES ($1) ON CONFLICT DO NOTHING`, userID); err != nil {
-		return fmt.Errorf("RegisterTeacher user: %w", err)
-	}
-	if err := unbindStudentRows(ctx, tx, userID); err != nil {
-		return fmt.Errorf("RegisterTeacher unbind student: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `
-INSERT INTO teachers (user_id)
-VALUES ($1)
-ON CONFLICT (user_id) DO NOTHING
-`, userID); err != nil {
-		return fmt.Errorf("RegisterTeacher teacher: %w", err)
 	}
 
 	return tx.Commit()

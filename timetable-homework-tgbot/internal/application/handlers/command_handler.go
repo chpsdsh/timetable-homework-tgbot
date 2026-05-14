@@ -64,27 +64,6 @@ func (h *CommandHandler) Leave(ctx context.Context, u tgbotapi.Update) {
 	_ = h.bot.Send(chatID, "Вы вышли из аккаунта.", h.keyboard.KBGuest())
 }
 
-func (h *CommandHandler) WaitUserGroup(ctx context.Context, u tgbotapi.Update) {
-	m := u.Message
-	chatID, userID := m.Chat.ID, m.From.ID
-	group := strings.TrimSpace(m.Text)
-
-	if group == "" {
-		_ = h.bot.Send(chatID, "Пусто. Введите номер своей группы (например, 23204).", h.keyboard.KBMember())
-		return
-	}
-
-	if err := h.auth.RegisterStudent(ctx, userID, group); err != nil {
-		log.Printf("RegisterStudent failed: %v", err)
-		h.bot.GetState().Del(chatID)
-		_ = h.bot.Send(chatID, "Не удалось войти. Проверьте номер группы и попробуйте ещё раз.", h.keyboard.KBGuest())
-		return
-	}
-
-	h.bot.GetState().Del(chatID)
-	_ = h.bot.Send(chatID, "Группа сохранена: "+group, h.keyboard.KBStudent())
-}
-
 func (h *CommandHandler) WaitLogin(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	login := strings.TrimSpace(u.Message.Text)

@@ -24,9 +24,8 @@ const (
 	BtnGroup                      = "Группы"
 	BtnTeacher                    = "Преподаватели"
 	BtnClassRoom                  = "Аудитории"
-	BtnRegisterStudent            = "Войти как студент"
-	BtnRegisterTeacher            = "Войти как преподаватель"
-	BtnJoin                       = BtnRegisterStudent
+	BtnLoginStudent               = "Войти как студент"
+	BtnLoginTeacher               = "Войти как преподаватель"
 	BtnSkip                       = "Продолжить без входа"
 	BtnDelete                     = "Удалить"
 	BtnNotDelete                  = "Не удалять"
@@ -49,8 +48,8 @@ func GetKeyboardController() *KeyboardController {
 func (k *KeyboardController) KBAskJoin() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(BtnRegisterStudent),
-			tgbotapi.NewKeyboardButton(BtnRegisterTeacher),
+			tgbotapi.NewKeyboardButton(BtnLoginStudent),
+			tgbotapi.NewKeyboardButton(BtnLoginTeacher),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnSkip),
@@ -92,6 +91,7 @@ func (k *KeyboardController) KBTeacher() tgbotapi.ReplyKeyboardMarkup {
 			tgbotapi.NewKeyboardButton(BtnPinHW),
 		),
 		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnChangeHW),
 			tgbotapi.NewKeyboardButton(BtnDeleteHomeworks),
 		),
 		tgbotapi.NewKeyboardButtonRow(
@@ -106,9 +106,9 @@ func (k *KeyboardController) KBGuest() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnShowTimeTable),
-			tgbotapi.NewKeyboardButton(BtnRegisterStudent),
+			tgbotapi.NewKeyboardButton(BtnLoginStudent),
 		),
-		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(BtnRegisterTeacher)),
+		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(BtnLoginTeacher)),
 	)
 	kb.ResizeKeyboard = true
 	return kb

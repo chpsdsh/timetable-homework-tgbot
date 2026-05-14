@@ -17,11 +17,12 @@ type HomeworkController interface {
 	DaysWithLessons(ctx context.Context, group string) ([]string, error)
 	LessonsByDay(ctx context.Context, userID int64, group, day string) ([]domain.LessonBrief, error)
 	Pin(ctx context.Context, userID int64, group string, day string, subject, text string) error
-	Update(ctx context.Context, homeworkID int64, newText string) error
+	Update(ctx context.Context, userID int64, homeworkID int64, newText string) error
 	UpdateStatus(ctx context.Context, userID int64, homeworkID int64) error
 	DeleteHomework(ctx context.Context, userID int64, homeworkID int64) error
 	ListForTeacher(ctx context.Context, userID int64) ([]domain.HWBrief, error)
 	ListForLastWeek(ctx context.Context, userID int64) ([]domain.HWBrief, error)
+	CheckTeacherHomework(ctx context.Context, userID int64, homeworkID int64) (bool, error)
 	CheckExistence(ctx context.Context, userID int64, homeworkID int64) (bool, error)
 }
 
@@ -85,8 +86,8 @@ func (c *homeworkController) Pin(ctx context.Context, userID int64, group string
 	return nil
 }
 
-func (c *homeworkController) Update(ctx context.Context, homeworkID int64, newText string) error {
-	if err := c.homeworkRepo.Update(ctx, homeworkID, newText); err != nil {
+func (c *homeworkController) Update(ctx context.Context, userID int64, homeworkID int64, newText string) error {
+	if err := c.homeworkRepo.Update(ctx, userID, homeworkID, newText); err != nil {
 		return err
 	}
 	return nil
@@ -120,6 +121,10 @@ func (c *homeworkController) ListForTeacher(ctx context.Context, userID int64) (
 		return []domain.HWBrief{}, err
 	}
 	return homework, nil
+}
+
+func (c *homeworkController) CheckTeacherHomework(ctx context.Context, userID int64, homeworkID int64) (bool, error) {
+	return c.homeworkRepo.CheckTeacherHomework(ctx, userID, homeworkID)
 }
 
 func (c *homeworkController) CheckExistence(ctx context.Context, userID int64, homeworkID int64) (bool, error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	"timetable-homework-tgbot/internal/application/controllers"
 	"timetable-homework-tgbot/internal/application/handlers"
 	"timetable-homework-tgbot/internal/infrastracture/repositories"
@@ -27,7 +28,7 @@ func NewWithDeps(
 ) (*App, error) {
 
 	// Контроллеры
-	authCtl := controllers.NewAuthController(userRepo, lessonRepo)
+	authCtl := controllers.NewAuthController(userRepo)
 	hwCtl := controllers.NewHomeworkController(userRepo, homeworkRepo, lessonRepo)
 	notifCtl := controllers.NewNotificationController(notificationRepo)
 	lessonCtl := controllers.NewLessonController(lessonRepo, userRepo, authCtl)
@@ -49,13 +50,12 @@ func NewWithDeps(
 
 	// меню
 	r.OnText(telegram.BtnShowTimeTable, ttH.ShowMenu)
-	r.OnText(telegram.BtnRegisterStudent, cmdH.Join)
-	r.OnText(telegram.BtnRegisterTeacher, cmdH.JoinTeacher)
+	r.OnText(telegram.BtnLoginStudent, cmdH.Join)
+	r.OnText(telegram.BtnLoginTeacher, cmdH.JoinTeacher)
 	r.OnText(telegram.BtnLeave, cmdH.Leave)
 	r.OnText(telegram.BtnSkip, cmdH.Skip)
 	r.OnState(telegram.StateWaitLogin, cmdH.WaitLogin)
 	r.OnState(telegram.StateWaitPassword, cmdH.WaitPassword)
-	r.OnState(telegram.StateWaitUserGroup, cmdH.WaitUserGroup)
 
 	// расписание
 	r.OnText(telegram.BtnGroup, ttH.AskGroup)
