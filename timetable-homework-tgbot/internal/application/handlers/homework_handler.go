@@ -49,13 +49,13 @@ func (h *HomeworkHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 }
 
 func (h *HomeworkHandler) WaitDay(ctx context.Context, u tgbotapi.Update) {
-	chatID := u.Message.Chat.ID
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	day := strings.TrimSpace(u.Message.Text)
 	s := h.bot.HWSessGet(chatID)
-	lessons, err := h.hw.LessonsByDay(ctx, s.Group, day)
+	lessons, err := h.hw.LessonsByDay(ctx, userID, s.Group, day)
 	if err != nil || len(lessons) == 0 {
 		h.bot.GetState().Del(chatID)
-		_ = h.bot.Send(chatID, "В этот день пар нет. Выбери другой.", h.keyboard.KBTeacher())
+		_ = h.bot.Send(chatID, "В этот день нет твоих пар для выбранной группы.", h.keyboard.KBTeacher())
 		return
 	}
 	s.Day = day
@@ -85,7 +85,7 @@ func (h *HomeworkHandler) WaitLesson(ctx context.Context, u tgbotapi.Update) {
 }
 
 func (h *HomeworkHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
-	chatID := u.Message.Chat.ID
+	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	text := strings.TrimSpace(u.Message.Text)
 	s := h.bot.HWSessGet(chatID)
 	if s.Group == "" || s.Day == "" || s.LessonTitle == "" {
@@ -93,7 +93,7 @@ func (h *HomeworkHandler) WaitText(ctx context.Context, u tgbotapi.Update) {
 		h.bot.GetState().Del(chatID)
 		return
 	}
-	if err := h.hw.Pin(ctx, s.Group, s.Day, s.LessonTitle, text); err != nil {
+	if err := h.hw.Pin(ctx, userID, s.Group, s.Day, s.LessonTitle, text); err != nil {
 		_ = h.bot.Send(chatID, "Не удалось прикрепить домашнее задание", h.keyboard.KBTeacher())
 		h.bot.GetState().Del(chatID)
 		return
@@ -164,7 +164,7 @@ func (h *HomeworkHandler) ListHomeworks(ctx context.Context, u tgbotapi.Update) 
 			_ = h.bot.Send(chatID, "Удалять домашние задания может только преподаватель.", h.keyboard.KBStudent())
 			return
 		}
-		hw, err := h.hw.ListAll(ctx)
+		hw, err := h.hw.ListForTeacher(ctx, userID)
 		if err != nil || len(hw) == 0 {
 			log.Println(err)
 			h.bot.GetState().Del(chatID)
@@ -277,7 +277,7 @@ func (h *HomeworkHandler) WaitConfirmDelete(ctx context.Context, u tgbotapi.Upda
 			h.bot.GetState().Del(chatID)
 			return
 		}
-		if err := h.hw.DeleteHomework(ctx, homeworkID); err != nil {
+		if err := h.hw.DeleteHomework(ctx, userID, homeworkID); err != nil {
 			log.Println(err)
 			h.bot.GetState().Del(chatID)
 			return

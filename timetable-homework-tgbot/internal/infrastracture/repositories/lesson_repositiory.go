@@ -16,6 +16,8 @@ type LessonsRepository interface {
 	GetLessonsRoom(ctx context.Context, roomName string) ([]domain.LessonBrief, error)
 	GetDaysWithLessonsByGroup(ctx context.Context, group string) ([]string, error)
 	LessonsByDayGroup(ctx context.Context, group, day string) ([]domain.LessonBrief, error)
+	LessonsByDayGroupForTeacher(ctx context.Context, userID int64, group, day string) ([]domain.LessonBrief, error)
+	HasTeacherLesson(ctx context.Context, userID int64, group, day, subject string) (bool, error)
 	LessonsByDayTeacher(ctx context.Context, teacherFio, day string) ([]domain.LessonBrief, error)
 	LessonsByDayRoom(ctx context.Context, roomName, day string) ([]domain.LessonBrief, error)
 }
@@ -157,6 +159,57 @@ GROUP BY l.id, t.teacher_name, a.room_name
 ORDER BY l.start_time;
 `
 	return r.queryLessons(ctx, q, group, weekdayNumber(day))
+}
+
+func (r *LessonsRepo) LessonsByDayGroupForTeacher(ctx context.Context, userID int64, group, day string) ([]domain.LessonBrief, error) {
+	const q = `
+SELECT
+    l.subject,
+    l.lesson_type,
+    t.teacher_name,
+    l.start_time::text,
+    l.weekday,
+    a.room_name,
+    l.week,
+    string_agg(g2.group_name, ', ' ORDER BY g2.group_name) AS groups
+FROM lessons l
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+JOIN teachers t ON t.id = l.teacher_id
+JOIN auditoriums a ON a.id = l.room_id
+JOIN lesson_groups lg2 ON lg2.lesson_id = l.id
+JOIN groups g2 ON g2.id = lg2.group_id
+WHERE g.group_name = $1
+  AND l.weekday = $2
+  AND t.user_id = $3
+GROUP BY l.id, t.teacher_name, a.room_name
+ORDER BY l.start_time;
+`
+	return r.queryLessons(ctx, q, group, weekdayNumber(day), userID)
+}
+
+func (r *LessonsRepo) HasTeacherLesson(ctx context.Context, userID int64, group, day, subject string) (bool, error) {
+	const q = `
+SELECT 1
+FROM lessons l
+JOIN lesson_groups lg ON lg.lesson_id = l.id
+JOIN groups g ON g.id = lg.group_id
+JOIN teachers t ON t.id = l.teacher_id
+WHERE t.user_id = $1
+  AND g.group_name = $2
+  AND l.weekday = $3
+  AND l.subject = $4
+LIMIT 1;
+`
+	var exists int
+	err := r.db.GetSql().QueryRowContext(ctx, q, userID, group, weekdayNumber(day), subject).Scan(&exists)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("HasTeacherLesson query: %w", err)
+	}
+	return true, nil
 }
 
 func (r *LessonsRepo) LessonsByDayTeacher(ctx context.Context, teacherFio, day string) ([]domain.LessonBrief, error) {

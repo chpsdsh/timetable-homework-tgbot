@@ -13,6 +13,8 @@ import (
 
 const (
 	StateWaitUserGroup        = "wait_user_group"
+	StateWaitLogin            = "wait_login"
+	StateWaitPassword         = "wait_password"
 	StateWaitHWGroup          = "wait_hw_group"
 	StateWaitGroupTB          = "wait_tb_group"
 	StateWaitTeacherTB        = "wait_tb_teacher"
@@ -45,6 +47,11 @@ type RemindSession struct {
 	TimeHHMM        string
 }
 
+type AuthSession struct {
+	Role  string
+	Login string
+}
+
 type Bot struct {
 	api    *tgbotapi.BotAPI
 	state  StateStore
@@ -55,12 +62,15 @@ type Bot struct {
 
 	remMu sync.Mutex
 	rem   map[int64]RemindSession
+
+	authMu sync.Mutex
+	auth   map[int64]AuthSession
 }
 
 func NewBot(api *tgbotapi.BotAPI, state StateStore) *Bot {
 	return &Bot{
 		api: api, state: state, router: NewRouter(),
-		hw: map[int64]HwSession{}, rem: map[int64]RemindSession{},
+		hw: map[int64]HwSession{}, rem: map[int64]RemindSession{}, auth: map[int64]AuthSession{},
 	}
 }
 
@@ -149,6 +159,23 @@ func (b *Bot) RemSessGet(chatID int64) (RemindSession, bool) {
 	return s, ok
 }
 func (b *Bot) RemSessDel(chatID int64) { b.remMu.Lock(); delete(b.rem, chatID); b.remMu.Unlock() }
+
+func (b *Bot) AuthSessSet(chatID int64, s AuthSession) {
+	b.authMu.Lock()
+	b.auth[chatID] = s
+	b.authMu.Unlock()
+}
+func (b *Bot) AuthSessGet(chatID int64) (AuthSession, bool) {
+	b.authMu.Lock()
+	defer b.authMu.Unlock()
+	s, ok := b.auth[chatID]
+	return s, ok
+}
+func (b *Bot) AuthSessDel(chatID int64) {
+	b.authMu.Lock()
+	delete(b.auth, chatID)
+	b.authMu.Unlock()
+}
 
 func (b *Bot) SendWithRetry(msg tgbotapi.Chattable) error {
 	const maxAttempts = 3

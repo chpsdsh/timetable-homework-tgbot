@@ -16,6 +16,7 @@ var (
 type AuthController interface {
 	GetRole(ctx context.Context, userID int64) (string, error)
 	EnsureRegistered(ctx context.Context, userID int64) (bool, error)
+	Login(ctx context.Context, userID int64, role, login, password string) error
 	RegisterStudent(ctx context.Context, userID int64, group string) error
 	RegisterTeacher(ctx context.Context, userID int64) error
 	LeaveGroup(ctx context.Context, userID int64) error
@@ -45,6 +46,20 @@ func (a *authenticationController) EnsureRegistered(ctx context.Context, userID 
 		return false, err
 	}
 	return role != repositories.RoleGuest, nil
+}
+
+func (a *authenticationController) Login(ctx context.Context, userID int64, role, login, password string) error {
+	ctx, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+
+	switch role {
+	case repositories.RoleStudent:
+		return a.userRepo.LoginStudent(ctx, userID, login, password)
+	case repositories.RoleTeacher:
+		return a.userRepo.LoginTeacher(ctx, userID, login, password)
+	default:
+		return errors.New("unknown role")
+	}
 }
 
 func (a *authenticationController) RegisterStudent(ctx context.Context, userID int64, group string) error {

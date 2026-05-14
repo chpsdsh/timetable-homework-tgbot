@@ -26,10 +26,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := db.FillDatabase(); err != nil {
-		log.Fatal(err)
-	}
-
 	var usersRepo repositories.UsersRepository = repositories.NewUserRepo(db)
 	var lessonsRepo repositories.LessonsRepository = repositories.NewLessonsRepo(db)
 	var hwRepo repositories.HomeworkRepository = repositories.NewHomeworkRepo(db)

@@ -276,7 +276,15 @@ ON CONFLICT DO NOTHING
 `, userID, teacherName); err != nil {
 		return 0, err
 	}
-	err := tx.QueryRowContext(ctx, `SELECT id FROM teachers WHERE teacher_name = $1`, teacherName).Scan(&id)
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM teachers WHERE teacher_name = $1`, teacherName).Scan(&id); err != nil {
+		return 0, err
+	}
+	_, err := tx.ExecContext(ctx, `
+UPDATE teachers
+SET login = COALESCE(login, 'teacher_' || id::TEXT),
+    password = COALESCE(password, 'teacher_' || id::TEXT)
+WHERE id = $1
+`, id)
 	return id, err
 }
 

@@ -53,6 +53,8 @@ func NewWithDeps(
 	r.OnText(telegram.BtnRegisterTeacher, cmdH.JoinTeacher)
 	r.OnText(telegram.BtnLeave, cmdH.Leave)
 	r.OnText(telegram.BtnSkip, cmdH.Skip)
+	r.OnState(telegram.StateWaitLogin, cmdH.WaitLogin)
+	r.OnState(telegram.StateWaitPassword, cmdH.WaitPassword)
 	r.OnState(telegram.StateWaitUserGroup, cmdH.WaitUserGroup)
 
 	// расписание

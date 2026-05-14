@@ -9,11 +9,11 @@ import (
 )
 
 type HomeworkRepository interface {
-	SaveForGroup(ctx context.Context, group, subject, text string) error
+	SaveForGroup(ctx context.Context, teacherUserID int64, group, subject, text string) error
 	Update(ctx context.Context, homeworkID int64, newText string) error
 	UpdateStatus(ctx context.Context, homeworkID int64) error
-	Delete(ctx context.Context, homeworkID int64) error
-	ListAll(ctx context.Context) ([]domain.HWBrief, error)
+	DeleteByTeacher(ctx context.Context, teacherUserID, homeworkID int64) error
+	ListForTeacher(ctx context.Context, teacherUserID int64) ([]domain.HWBrief, error)
 	ListForUser(ctx context.Context, userID int64) ([]domain.HWBrief, error)
 	CheckExistence(ctx context.Context, userID, homeworkID int64) (bool, error)
 }
@@ -26,12 +26,17 @@ func NewHomeworkRepo(db *database.DB) *HomeworkRepo {
 	return &HomeworkRepo{db: db}
 }
 
-func (r *HomeworkRepo) SaveForGroup(ctx context.Context, group, subject, text string) error {
+func (r *HomeworkRepo) SaveForGroup(ctx context.Context, teacherUserID int64, group, subject, text string) error {
 	tx, err := r.db.GetSql().BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("SaveForGroup begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	var teacherID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM teachers WHERE user_id = $1`, teacherUserID).Scan(&teacherID); err != nil {
+		return fmt.Errorf("SaveForGroup teacher: %w", err)
+	}
 
 	var groupID int64
 	if err := tx.QueryRowContext(ctx, `SELECT id FROM groups WHERE group_name = $1`, group).Scan(&groupID); err != nil {
@@ -40,10 +45,10 @@ func (r *HomeworkRepo) SaveForGroup(ctx context.Context, group, subject, text st
 
 	var homeworkID int64
 	if err := tx.QueryRowContext(ctx, `
-INSERT INTO homeworks (text, status)
-VALUES ($1, $2)
+INSERT INTO homeworks (text, status, teacher_id)
+VALUES ($1, $2, $3)
 RETURNING id
-`, fmt.Sprintf("%s: %s", subject, text), "new").Scan(&homeworkID); err != nil {
+`, fmt.Sprintf("%s: %s", subject, text), "new", teacherID).Scan(&homeworkID); err != nil {
 		return fmt.Errorf("SaveForGroup homework: %w", err)
 	}
 
@@ -99,18 +104,20 @@ ORDER BY h.id DESC;
 	return res, nil
 }
 
-func (r *HomeworkRepo) ListAll(ctx context.Context) ([]domain.HWBrief, error) {
+func (r *HomeworkRepo) ListForTeacher(ctx context.Context, teacherUserID int64) ([]domain.HWBrief, error) {
 	const q = `
 SELECT h.id, h.text, COALESCE(h.status, ''), string_agg(g.group_name, ', ' ORDER BY g.group_name)
 FROM homeworks h
 JOIN group_homeworks gh ON gh.homework_id = h.id
 JOIN groups g ON g.id = gh.group_id
+JOIN teachers t ON t.id = h.teacher_id
+WHERE t.user_id = $1
 GROUP BY h.id
 ORDER BY h.id DESC;
 `
-	rows, err := r.db.GetSql().QueryContext(ctx, q)
+	rows, err := r.db.GetSql().QueryContext(ctx, q, teacherUserID)
 	if err != nil {
-		return nil, fmt.Errorf("ListAll query: %w", err)
+		return nil, fmt.Errorf("ListForTeacher query: %w", err)
 	}
 	defer rows.Close()
 
@@ -119,7 +126,7 @@ ORDER BY h.id DESC;
 		var hw domain.HWBrief
 		var groups string
 		if err := rows.Scan(&hw.ID, &hw.HomeworkText, &hw.Status, &groups); err != nil {
-			return nil, fmt.Errorf("ListAll scan: %w", err)
+			return nil, fmt.Errorf("ListForTeacher scan: %w", err)
 		}
 		hw.Subject = fmt.Sprintf("#%d", hw.ID)
 		if groups != "" {
@@ -128,7 +135,7 @@ ORDER BY h.id DESC;
 		res = append(res, hw)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("ListAll rows: %w", err)
+		return nil, fmt.Errorf("ListForTeacher rows: %w", err)
 	}
 	return res, nil
 }
@@ -144,10 +151,19 @@ func (r *HomeworkRepo) UpdateStatus(ctx context.Context, homeworkID int64) error
 	return nil
 }
 
-func (r *HomeworkRepo) Delete(ctx context.Context, homeworkID int64) error {
-	_, err := r.db.GetSql().ExecContext(ctx, `DELETE FROM homeworks WHERE id = $1`, homeworkID)
+func (r *HomeworkRepo) DeleteByTeacher(ctx context.Context, teacherUserID, homeworkID int64) error {
+	res, err := r.db.GetSql().ExecContext(ctx, `
+DELETE FROM homeworks h
+USING teachers t
+WHERE h.id = $1
+  AND h.teacher_id = t.id
+  AND t.user_id = $2
+`, homeworkID, teacherUserID)
 	if err != nil {
-		return fmt.Errorf("homeworks.Delete exec: %w", err)
+		return fmt.Errorf("homeworks.DeleteByTeacher exec: %w", err)
+	}
+	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
+		return fmt.Errorf("homeworks.DeleteByTeacher: not found or forbidden (id=%d)", homeworkID)
 	}
 	return nil
 }
