@@ -18,7 +18,7 @@ type HomeworkController interface {
 	LessonsByDay(ctx context.Context, userID int64, group, day string) ([]domain.LessonBrief, error)
 	Pin(ctx context.Context, userID int64, group string, day string, subject, text string) error
 	Update(ctx context.Context, homeworkID int64, newText string) error
-	UpdateStatus(ctx context.Context, homeworkID int64) error
+	UpdateStatus(ctx context.Context, userID int64, homeworkID int64) error
 	DeleteHomework(ctx context.Context, userID int64, homeworkID int64) error
 	ListForTeacher(ctx context.Context, userID int64) ([]domain.HWBrief, error)
 	ListForLastWeek(ctx context.Context, userID int64) ([]domain.HWBrief, error)
@@ -92,8 +92,8 @@ func (c *homeworkController) Update(ctx context.Context, homeworkID int64, newTe
 	return nil
 }
 
-func (c *homeworkController) UpdateStatus(ctx context.Context, homeworkID int64) error {
-	if err := c.homeworkRepo.UpdateStatus(ctx, homeworkID); err != nil {
+func (c *homeworkController) UpdateStatus(ctx context.Context, userID int64, homeworkID int64) error {
+	if err := c.homeworkRepo.UpdateStatus(ctx, userID, homeworkID); err != nil {
 		return err
 	}
 	return nil

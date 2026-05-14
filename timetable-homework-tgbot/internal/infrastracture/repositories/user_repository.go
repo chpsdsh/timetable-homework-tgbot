@@ -99,8 +99,8 @@ WHERE login = $1
 	if err := unbindTeacherRows(ctx, tx, userID); err != nil {
 		return fmt.Errorf("LoginStudent unbind teacher: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM students WHERE user_id = $1 AND id <> $2`, userID, studentID); err != nil {
-		return fmt.Errorf("LoginStudent cleanup student: %w", err)
+	if err := unbindStudentRows(ctx, tx, userID); err != nil {
+		return fmt.Errorf("LoginStudent unbind student: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE students SET user_id = $1 WHERE id = $2`, userID, studentID); err != nil {
 		return fmt.Errorf("LoginStudent bind: %w", err)
@@ -132,11 +132,11 @@ WHERE login = $1
 	if _, err := tx.ExecContext(ctx, `INSERT INTO users (tg_id) VALUES ($1) ON CONFLICT DO NOTHING`, userID); err != nil {
 		return fmt.Errorf("LoginTeacher user: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM students WHERE user_id = $1`, userID); err != nil {
-		return fmt.Errorf("LoginTeacher cleanup student: %w", err)
-	}
 	if err := unbindTeacherRows(ctx, tx, userID); err != nil {
 		return fmt.Errorf("LoginTeacher unbind previous teacher: %w", err)
+	}
+	if err := unbindStudentRows(ctx, tx, userID); err != nil {
+		return fmt.Errorf("LoginTeacher unbind student: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE teachers SET user_id = $1 WHERE id = $2`, userID, teacherID); err != nil {
 		return fmt.Errorf("LoginTeacher bind: %w", err)
@@ -186,8 +186,8 @@ func (r *UserRepo) RegisterTeacher(ctx context.Context, userID int64) error {
 	if _, err := tx.ExecContext(ctx, `INSERT INTO users (tg_id) VALUES ($1) ON CONFLICT DO NOTHING`, userID); err != nil {
 		return fmt.Errorf("RegisterTeacher user: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM students WHERE user_id = $1`, userID); err != nil {
-		return fmt.Errorf("RegisterTeacher delete student: %w", err)
+	if err := unbindStudentRows(ctx, tx, userID); err != nil {
+		return fmt.Errorf("RegisterTeacher unbind student: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO teachers (user_id)
@@ -207,14 +207,32 @@ func (r *UserRepo) Leave(ctx context.Context, userID int64) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM students WHERE user_id = $1`, userID); err != nil {
-		return fmt.Errorf("Leave delete student: %w", err)
+	if err := unbindStudentRows(ctx, tx, userID); err != nil {
+		return fmt.Errorf("Leave unbind student: %w", err)
 	}
 	if err := unbindTeacherRows(ctx, tx, userID); err != nil {
 		return fmt.Errorf("Leave unbind teacher: %w", err)
 	}
 
 	return tx.Commit()
+}
+
+func unbindStudentRows(ctx context.Context, tx *sql.Tx, userID int64) error {
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO users (tg_id)
+SELECT -300000000000000 - id
+FROM students
+WHERE user_id = $1
+ON CONFLICT DO NOTHING
+`, userID); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `
+UPDATE students
+SET user_id = -300000000000000 - id
+WHERE user_id = $1
+`, userID)
+	return err
 }
 
 func unbindTeacherRows(ctx context.Context, tx *sql.Tx, userID int64) error {

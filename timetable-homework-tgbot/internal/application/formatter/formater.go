@@ -116,7 +116,7 @@ func (f *Formatter) SplitForTelegram(text string) []string {
 
 func (f *Formatter) FormatHomeworks(list []domain.HWBrief) string {
 	if len(list) == 0 {
-		return "Домашек нет"
+		return "Домашних работ нет"
 	}
 
 	var b strings.Builder

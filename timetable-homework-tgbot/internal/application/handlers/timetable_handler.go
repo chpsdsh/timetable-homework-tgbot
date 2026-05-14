@@ -24,13 +24,13 @@ func NewTimetableHandler(bot *telegram.Bot, lessonCtl controllers.LessonsControl
 
 func (h *TimetableHandler) ShowMenu(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	_ = h.bot.Send(chatID, "Какое расписание ты хочешь увидеть?", h.keyboard.KBChooseTimetable())
+	_ = h.bot.Send(chatID, "Какое расписание Вы хотите увидеть?", h.keyboard.KBChooseTimetable())
 }
 
 func (h *TimetableHandler) AskGroup(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	h.bot.GetState().Set(chatID, telegram.StateWaitGroupTB)
-	_ = h.bot.SendRemove(chatID, "Введи номер группы")
+	_ = h.bot.SendRemove(chatID, "Введите номер группы")
 }
 
 func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
@@ -71,7 +71,7 @@ func (h *TimetableHandler) WaitGroup(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) AskTeacher(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	h.bot.GetState().Set(chatID, telegram.StateWaitTeacherTB)
-	_ = h.bot.SendRemove(chatID, "Введи ФИО преподавателя")
+	_ = h.bot.SendRemove(chatID, "Введите ФИО преподавателя")
 }
 
 func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
@@ -111,7 +111,7 @@ func (h *TimetableHandler) WaitTeacher(ctx context.Context, u tgbotapi.Update) {
 func (h *TimetableHandler) AskRoom(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	h.bot.GetState().Set(chatID, telegram.StateWaitRoomTB)
-	_ = h.bot.SendRemove(chatID, "Введи номер аудитории")
+	_ = h.bot.SendRemove(chatID, "Введите номер аудитории")
 }
 
 func (h *TimetableHandler) WaitRoom(ctx context.Context, u tgbotapi.Update) {

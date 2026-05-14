@@ -65,7 +65,7 @@ func NewWithDeps(
 	r.OnState(telegram.StateWaitTeacherTB, ttH.WaitTeacher)
 	r.OnState(telegram.StateWaitRoomTB, ttH.WaitRoom)
 
-	// ДЗ
+	// Домашние работы
 	r.OnText(telegram.BtnPinHW, hwH.PinStart)
 	r.OnState(telegram.StateWaitHWGroup, hwH.WaitGroup)
 	r.OnState(telegram.StateWaitHWDay, hwH.WaitDay)

@@ -28,11 +28,11 @@ func (h *NotifyHandler) Start(ctx context.Context, u tgbotapi.Update) {
 	chatID, userID := u.Message.Chat.ID, u.Message.From.ID
 	list, err := h.hw.ListForLastWeek(ctx, userID)
 	if err != nil || len(list) == 0 {
-		_ = h.bot.Send(chatID, "За последнюю неделю ДЗ не найдено.", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "За последнюю неделю домашние работы не найдены.", h.keyboard.KBMember())
 		return
 	}
 	h.bot.GetState().Set(chatID, telegram.StateWaitRemindChooseHW)
-	_ = h.bot.Send(chatID, "Выбери ДЗ, для которого поставить напоминание:", h.keyboard.KBHomeworks(list))
+	_ = h.bot.Send(chatID, "Выберите домашнюю работу, для которой нужно поставить напоминание:", h.keyboard.KBHomeworks(list))
 }
 
 func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
@@ -43,7 +43,7 @@ func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
 	if err != nil {
 		h.bot.GetState().Del(chatID)
 		h.bot.HWSessDel(chatID)
-		_ = h.bot.Send(chatID, "Некорректное домашнее задание", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Некорректная домашняя работа", h.keyboard.KBMember())
 		return
 	}
 
@@ -58,7 +58,7 @@ func (h *NotifyHandler) WaitChooseHW(ctx context.Context, u tgbotapi.Update) {
 		log.Println(homework)
 		h.bot.GetState().Del(chatID)
 		h.bot.HWSessDel(chatID)
-		_ = h.bot.Send(chatID, "Некорректное домашнее задание", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Некорректная домашняя работа", h.keyboard.KBMember())
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *NotifyHandler) WaitChooseDay(ctx context.Context, u tgbotapi.Update) {
 	s.Date = date
 	h.bot.RemSessSet(chatID, s)
 	h.bot.GetState().Set(chatID, telegram.StateWaitRemindChooseTime)
-	_ = h.bot.SendRemove(chatID, "Во сколько напоминать(HH:MM)?")
+	_ = h.bot.SendRemove(chatID, "Во сколько напоминать (HH:MM)?")
 }
 
 func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
@@ -93,7 +93,7 @@ func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 
 	s, ok := h.bot.RemSessGet(chatID)
 	if !ok || s.SubjectWithTask == "" {
-		_ = h.bot.Send(chatID, "Сессия потерялась. Начни заново.", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Сессия потерялась. Начните заново.", h.keyboard.KBMember())
 		h.bot.GetState().Del(chatID)
 		return
 	}
@@ -101,7 +101,7 @@ func (h *NotifyHandler) WaitChooseTime(ctx context.Context, u tgbotapi.Update) {
 
 	homeworkID, err := parseHomeworkID(s.SubjectWithTask)
 	if err != nil {
-		_ = h.bot.Send(chatID, "Не удалось определить домашнее задание.", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Не удалось определить домашнюю работу.", h.keyboard.KBMember())
 		h.bot.RemSessDel(chatID)
 		h.bot.GetState().Del(chatID)
 		return
@@ -131,7 +131,7 @@ func (h *NotifyHandler) StartDeleteNotification(ctx context.Context, u tgbotapi.
 		return
 	}
 	h.bot.GetState().Set(chatID, telegram.StateWaitRemindChoose)
-	_ = h.bot.Send(chatID, "Выбери напоминание, для удаления:", h.keyboard.KBNotifications(list))
+	_ = h.bot.Send(chatID, "Выберите напоминание для удаления:", h.keyboard.KBNotifications(list))
 
 }
 

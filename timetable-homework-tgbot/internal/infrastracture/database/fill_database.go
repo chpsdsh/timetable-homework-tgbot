@@ -14,7 +14,7 @@ import (
 	"timetable-homework-tgbot/internal/domain/urlselector"
 )
 
-const workers = 8
+const workers = 20
 
 var timetableSaveMu sync.Mutex
 
@@ -113,84 +113,6 @@ func (d *DB) fillGroupsParallel(ctx context.Context) error {
 	}
 }
 
-func (d *DB) fillTeachersParallel(ctx context.Context) error {
-	teachers := d.parser.ParseTeachers()
-
-	jobs := make(chan urlselector.Teacher, workers)
-	errCh := make(chan error, 1)
-
-	var wg sync.WaitGroup
-	wg.Add(workers)
-
-	for i := 0; i < workers; i++ {
-		go func() {
-			defer wg.Done()
-			for t := range jobs {
-				lessonsTeacher := d.parser.ParseLessonsTeacher(t.FullURL)
-				if err := d.fillTeacherSchedule(ctx, t.FullName, lessonsTeacher); err != nil {
-					select {
-					case errCh <- fmt.Errorf("fill teacher schedule %s: %w", t.FullName, err):
-					default:
-					}
-					return
-				}
-			}
-		}()
-	}
-
-	for _, t := range teachers {
-		jobs <- t
-	}
-	close(jobs)
-	wg.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
-}
-
-func (d *DB) fillRoomsParallel(ctx context.Context) error {
-	rooms := d.parser.ParseRooms()
-
-	jobs := make(chan urlselector.Room, workers)
-	errCh := make(chan error, 1)
-
-	var wg sync.WaitGroup
-	wg.Add(workers)
-
-	for i := 0; i < workers; i++ {
-		go func() {
-			defer wg.Done()
-			for r := range jobs {
-				lessonsRoom := d.parser.ParseLessonsRoom(r.FllURL)
-				if err := d.fillRoomSchedule(ctx, r.Room, lessonsRoom); err != nil {
-					select {
-					case errCh <- fmt.Errorf("fill room schedule %s: %w", r.Room, err):
-					default:
-					}
-					return
-				}
-			}
-		}()
-	}
-
-	for _, r := range rooms {
-		jobs <- r
-	}
-	close(jobs)
-	wg.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
-}
-
 func (d *DB) fillGroupSchedule(ctx context.Context, groupName string, lessons []lesson.LessonStudent) error {
 	timetableSaveMu.Lock()
 	defer timetableSaveMu.Unlock()
@@ -201,14 +123,6 @@ func (d *DB) fillGroupSchedule(ctx context.Context, groupName string, lessons []
 			return fmt.Errorf("insert group lesson: %w", err)
 		}
 	}
-	return nil
-}
-
-func (d *DB) fillTeacherSchedule(ctx context.Context, teacherFIO string, lessons []lesson.LessonTeacher) error {
-	return nil
-}
-
-func (d *DB) fillRoomSchedule(ctx context.Context, roomName string, lessons []lesson.LessonRoom) error {
 	return nil
 }
 

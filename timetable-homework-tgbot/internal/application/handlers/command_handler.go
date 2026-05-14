@@ -23,7 +23,7 @@ func NewCommandHandler(auth controllers.AuthController, bot *telegram.Bot) *Comm
 
 func (h *CommandHandler) Start(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
-	msg := tgbotapi.NewMessage(chatID, "Выбери роль для входа в бот.")
+	msg := tgbotapi.NewMessage(chatID, "Выберите роль для входа в бот.")
 	msg.ReplyMarkup = h.keyboard.KBAskJoin()
 	_ = h.bot.SendWithRetry(msg)
 }
@@ -33,12 +33,12 @@ func (h *CommandHandler) Join(ctx context.Context, u tgbotapi.Update) {
 	registered, _ := h.auth.EnsureRegistered(ctx, userID)
 	if registered {
 		role, _ := h.auth.GetRole(ctx, userID)
-		_ = h.bot.Send(chatID, "Ты уже вошёл в бот.", keyboardByRole(h.keyboard, role))
+		_ = h.bot.Send(chatID, "Вы уже вошли в бот.", keyboardByRole(h.keyboard, role))
 		return
 	}
 	h.bot.AuthSessSet(chatID, telegram.AuthSession{Role: repositories.RoleStudent})
 	h.bot.GetState().Set(chatID, telegram.StateWaitLogin)
-	_ = h.bot.SendRemove(chatID, "Введи логин студента.")
+	_ = h.bot.SendRemove(chatID, "Введите логин студента.")
 }
 
 func (h *CommandHandler) JoinTeacher(ctx context.Context, u tgbotapi.Update) {
@@ -46,12 +46,12 @@ func (h *CommandHandler) JoinTeacher(ctx context.Context, u tgbotapi.Update) {
 	registered, _ := h.auth.EnsureRegistered(ctx, userID)
 	if registered {
 		role, _ := h.auth.GetRole(ctx, userID)
-		_ = h.bot.Send(chatID, "Ты уже вошёл в бот.", keyboardByRole(h.keyboard, role))
+		_ = h.bot.Send(chatID, "Вы уже вошли в бот.", keyboardByRole(h.keyboard, role))
 		return
 	}
 	h.bot.AuthSessSet(chatID, telegram.AuthSession{Role: repositories.RoleTeacher})
 	h.bot.GetState().Set(chatID, telegram.StateWaitLogin)
-	_ = h.bot.SendRemove(chatID, "Введи логин преподавателя.")
+	_ = h.bot.SendRemove(chatID, "Введите логин преподавателя.")
 }
 
 func (h *CommandHandler) Leave(ctx context.Context, u tgbotapi.Update) {
@@ -70,14 +70,14 @@ func (h *CommandHandler) WaitUserGroup(ctx context.Context, u tgbotapi.Update) {
 	group := strings.TrimSpace(m.Text)
 
 	if group == "" {
-		_ = h.bot.Send(chatID, "Пусто. Введи номер своей группы (например, 23204).", h.keyboard.KBMember())
+		_ = h.bot.Send(chatID, "Пусто. Введите номер своей группы (например, 23204).", h.keyboard.KBMember())
 		return
 	}
 
 	if err := h.auth.RegisterStudent(ctx, userID, group); err != nil {
 		log.Printf("RegisterStudent failed: %v", err)
 		h.bot.GetState().Del(chatID)
-		_ = h.bot.Send(chatID, "Не удалось войти. Проверь номер группы и попробуй ещё раз.", h.keyboard.KBGuest())
+		_ = h.bot.Send(chatID, "Не удалось войти. Проверьте номер группы и попробуйте ещё раз.", h.keyboard.KBGuest())
 		return
 	}
 
@@ -89,20 +89,20 @@ func (h *CommandHandler) WaitLogin(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	login := strings.TrimSpace(u.Message.Text)
 	if login == "" {
-		_ = h.bot.SendRemove(chatID, "Логин пустой. Введи логин.")
+		_ = h.bot.SendRemove(chatID, "Логин пустой. Введите логин.")
 		return
 	}
 
 	s, ok := h.bot.AuthSessGet(chatID)
 	if !ok || s.Role == "" {
 		h.bot.GetState().Del(chatID)
-		_ = h.bot.Send(chatID, "Сессия входа потерялась. Начни заново через /start.", h.keyboard.KBGuest())
+		_ = h.bot.Send(chatID, "Сессия входа потерялась. Начните заново через /start.", h.keyboard.KBGuest())
 		return
 	}
 	s.Login = login
 	h.bot.AuthSessSet(chatID, s)
 	h.bot.GetState().Set(chatID, telegram.StateWaitPassword)
-	_ = h.bot.SendRemove(chatID, "Введи пароль.")
+	_ = h.bot.SendRemove(chatID, "Введите пароль.")
 }
 
 func (h *CommandHandler) WaitPassword(ctx context.Context, u tgbotapi.Update) {
@@ -112,7 +112,7 @@ func (h *CommandHandler) WaitPassword(ctx context.Context, u tgbotapi.Update) {
 	if !ok || s.Role == "" || s.Login == "" {
 		h.bot.GetState().Del(chatID)
 		h.bot.AuthSessDel(chatID)
-		_ = h.bot.Send(chatID, "Сессия входа потерялась. Начни заново через /start.", h.keyboard.KBGuest())
+		_ = h.bot.Send(chatID, "Сессия входа потерялась. Начните заново через /start.", h.keyboard.KBGuest())
 		return
 	}
 
@@ -127,17 +127,17 @@ func (h *CommandHandler) WaitPassword(ctx context.Context, u tgbotapi.Update) {
 	h.bot.GetState().Del(chatID)
 	h.bot.AuthSessDel(chatID)
 	if s.Role == repositories.RoleTeacher {
-		_ = h.bot.Send(chatID, "Готово, ты вошёл как преподаватель.", h.keyboard.KBTeacher())
+		_ = h.bot.Send(chatID, "Готово, Вы вошли как преподаватель.", h.keyboard.KBTeacher())
 		return
 	}
-	_ = h.bot.Send(chatID, "Готово, ты вошёл как студент.", h.keyboard.KBStudent())
+	_ = h.bot.Send(chatID, "Готово, Вы вошли как студент.", h.keyboard.KBStudent())
 }
 
 func (h *CommandHandler) Skip(ctx context.Context, u tgbotapi.Update) {
 	chatID := u.Message.Chat.ID
 	h.bot.GetState().Del(chatID)
 	h.bot.AuthSessDel(chatID)
-	_ = h.bot.Send(chatID, "Ок, продолжим без привязки.", h.keyboard.KBGuest())
+	_ = h.bot.Send(chatID, "Хорошо, продолжим без привязки.", h.keyboard.KBGuest())
 }
 
 func keyboardByRole(k *telegram.KeyboardController, role string) tgbotapi.ReplyKeyboardMarkup {

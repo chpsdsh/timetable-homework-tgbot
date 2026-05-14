@@ -11,7 +11,7 @@ import (
 type HomeworkRepository interface {
 	SaveForGroup(ctx context.Context, teacherUserID int64, group, subject, text string) error
 	Update(ctx context.Context, homeworkID int64, newText string) error
-	UpdateStatus(ctx context.Context, homeworkID int64) error
+	UpdateStatus(ctx context.Context, userID, homeworkID int64) error
 	DeleteByTeacher(ctx context.Context, teacherUserID, homeworkID int64) error
 	ListForTeacher(ctx context.Context, teacherUserID int64) ([]domain.HWBrief, error)
 	ListForUser(ctx context.Context, userID int64) ([]domain.HWBrief, error)
@@ -76,10 +76,11 @@ func (r *HomeworkRepo) Update(ctx context.Context, homeworkID int64, newText str
 
 func (r *HomeworkRepo) ListForUser(ctx context.Context, userID int64) ([]domain.HWBrief, error) {
 	const q = `
-SELECT h.id, h.text, COALESCE(h.status, '')
+SELECT h.id, h.text, COALESCE(shs.status, 'new')
 FROM homeworks h
 JOIN group_homeworks gh ON gh.homework_id = h.id
 JOIN students s ON s.group_id = gh.group_id
+LEFT JOIN student_homework_statuses shs ON shs.homework_id = h.id AND shs.student_id = s.id
 WHERE s.user_id = $1
 ORDER BY h.id DESC;
 `
@@ -140,13 +141,23 @@ ORDER BY h.id DESC;
 	return res, nil
 }
 
-func (r *HomeworkRepo) UpdateStatus(ctx context.Context, homeworkID int64) error {
-	res, err := r.db.GetSql().ExecContext(ctx, `UPDATE homeworks SET status = $2 WHERE id = $1`, homeworkID, "done")
+func (r *HomeworkRepo) UpdateStatus(ctx context.Context, userID, homeworkID int64) error {
+	res, err := r.db.GetSql().ExecContext(ctx, `
+INSERT INTO student_homework_statuses (student_id, homework_id, status)
+SELECT s.id, h.id, $3
+FROM homeworks h
+JOIN group_homeworks gh ON gh.homework_id = h.id
+JOIN students s ON s.group_id = gh.group_id
+WHERE s.user_id = $1
+  AND h.id = $2
+ON CONFLICT (student_id, homework_id) DO UPDATE
+SET status = EXCLUDED.status
+`, userID, homeworkID, "done")
 	if err != nil {
 		return fmt.Errorf("UpdateStatus exec: %w", err)
 	}
 	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
-		return fmt.Errorf("UpdateStatus homework: not found (id=%d)", homeworkID)
+		return fmt.Errorf("UpdateStatus homework: not found or forbidden (id=%d, user_id=%d)", homeworkID, userID)
 	}
 	return nil
 }
